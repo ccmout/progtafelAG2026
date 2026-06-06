@@ -1,22 +1,15 @@
 library(readxl)
 library(openxlsx)
 library(dplyr)
+library(here)
 
 ### VOORdat je dit runt, doe ff ctrl + shift + f10
 
+runname <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+run_folder <- here("Runs", "Deelopdracht 7", runname)
 
-sMainDir <- "C:/3. Prognosetafels werkmap/Deelopdracht 7"
-setwd(sMainDir)
-
-# sTableName <- "AG2020"
-# MorTable <- 'EU21NL22'
-# applyCOVID <- TRUE
-# apply_2026_changes <- FALSE
-# sOutputFolder <- paste0("Output/", sTableName, "(", MorTable, ") - Covid ", applyCOVID, " - startpunt ", apply_2026_changes, "/")
-sOutputFolder <- "20260425 tbv CSO/4. AG2024(EU19NL19(AG2026)) - Covid TRUE - startpunt TRUE - Kalibratie 2022-2023/"
-
-Q2024M <- read_excel(paste0(sOutputFolder, "AG2020_BE_proj_all.xlsx"), sheet = "NLMale")
-Q2024F <- read_excel(paste0(sOutputFolder, "AG2020_BE_proj_all.xlsx"), sheet = "NLFemale")
+Q2024M <- read_excel(here(run_folder, paste0(runname, "_BE_proj_all.xlsx")), sheet = "NLMale")
+Q2024F <- read_excel(here(run_folder, paste0(runname, "_BE_proj_all.xlsx")), sheet = "NLFemale")
 
 waarderingsjaar <- 2027
 Q2024M <- Q2024M %>% dplyr::select(as.character(waarderingsjaar):last_col())
@@ -318,7 +311,7 @@ for (p in 1:6){
   n <- n + 1
   write.xlsx(list(Output = Output,
                   output2 = Output2),
-             paste0(sOutputFolder, "portefeuille_resultaten.xlsx", sep=""))
+             here(run_folder, paste0(runname, " portefeuille_resultaten.xlsx", sep="")))
   }
 
 ################## Factoren ############################
@@ -326,7 +319,8 @@ for (p in 1:6){
 factoren_portefeuille <- objPF[[1]]
 factoren_portefeuille[, (ncol(factoren_portefeuille) - 2): ncol(factoren_portefeuille)] <- 1
 factoren_portefeuille[, (ncol(factoren_portefeuille) - 2): ncol(factoren_portefeuille)] <- fnValueLiabilities(aQtxg=mortality_table, dtPF=factoren_portefeuille, dR=0.03, iXR=65, liabilities=1)
-write.xlsx(factoren_portefeuille, paste0(sOutputFolder, "factoren.xlsx"))
+write.xlsx(factoren_portefeuille, 
+           here(run_folder, paste0(runname, " factoren.xlsx")))
 
 ########################## Premie ######################################
 # 
@@ -369,6 +363,6 @@ for (p in 1:1){
 
 write.xlsx(list(output = Output_base,
                 output2 = Output_base2),
-           paste0(sOutputFolder, "Liabilities_premies.xlsx"))
+           here(run_folder, paste0(runname, " Liabilities_premies.xlsx")))
 
 

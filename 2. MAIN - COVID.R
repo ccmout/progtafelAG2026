@@ -15,14 +15,15 @@ library(data.table)
 # Dependencies: Alvorens deze script gerund wordt, dient "1. MAIN - AG2022.R" 
 # tot r. 151 (Projecting mortality in future) ook gedraaid te worden voor 
 # de Mu_xt forecasts.
-sMainDir <- "C:/3. Prognosetafels werkmap/Deelopdracht 7"
-setwd(sMainDir)
 
-path <- paste0("Input data/")
+run_name <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+run_folder <- here("Runs", "Deelopdracht 7", runname)
 
-path_death <- paste0(path, "/Deelopdracht 6/Deaths_NL - weekly.txt")
-path_expo  <- paste0(path, "/Deelopdracht 6/Exposures_NL - weekly_2023_opnieuw_v2.txt")
-path_phi  <- paste0(path, "Deelopdracht 6/phi.xlsx")
+input_folder <- here("Input data", "Deelopdracht 6")
+
+path_death <- here(input_folder, "Deaths_NL - weekly.txt")
+path_expo  <- here(input_folder, "Exposures_NL - weekly_2023_opnieuw_v2.txt")
+path_phi  <- here(input_folder, "phi.xlsx")
 
 dfDeath_week <- read.table(path_death,header=TRUE,dec=".",sep="")
 dfExposure_week  <- read.table(path_expo,header=TRUE,dec=".",sep="")
@@ -39,7 +40,7 @@ dfDagen_per_week_relatief <- dfDagen_per_week/colSums(dfDagen_per_week, na.rm=TR
 
 
 vanaf_jaar <- 2022
-tot_jaar <- 2023
+tot_jaar <- 2025
 iAge_treshold_beta <- 55
 aantal_jaar <- length(vanaf_jaar:tot_jaar)
 max_leeftijd <- 90
@@ -47,7 +48,7 @@ max_leeftijd <- 90
 data <- c()
 for(gender in c("Male", "Female")) {
   
-  mQ_tx_m <- read.xlsx("C:/3. Prognosetafels werkmap/Deelopdracht 7/20260425 tbv CSO/3. AG2024(EU19NL19(AG2026)) - Covid FALSE - startpunt TRUE/AG2020_BE_proj_all.xlsx", sheet = paste("NL",gender, sep=""))
+  mQ_tx_m <- read.xlsx(here(run_folder, paste0(runname, "_BE_proj_all.xlsx")), sheet = paste("NL",gender, sep=""))
   mQ_tx_m <- apply(mQ_tx_m, 2, as.numeric)
   mMu_tx_m <- -log(1 - t(mQ_tx_m))
   #mMu_tx_m <- -log(1 - objAG_BE_all[["lQg_NL_tx"]][[gender]])
@@ -238,7 +239,7 @@ output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M,
                               "FrakX" = mFrakX_t, 
                               "FrakBx" = FrakBeta_long)
 
-write.xlsx(output_covid_to_excel, file="Covid_parameterschattingen_2022_2023_tbv_stap4.xlsx")
+write.xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
 
 
 

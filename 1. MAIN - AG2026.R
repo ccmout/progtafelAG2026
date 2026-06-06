@@ -10,14 +10,10 @@
   # If we plot the RLEs from sequential calibrations, we can
   # entangle the impact of different starting level and different
   # parameter estimates.
-  
-  sMainDir <- "C:/3. Prognosetafels werkmap/Deelopdracht 7/"
-  setwd(sMainDir)
-  
   source("./Scripts/1. ReadData.R")
   source("./Scripts/2. Fit AG-model 2022.R")
   source("./Scripts/3. new startingpoint 2026.R")
-  source("./Scripts/4. CalculationLifeExpectancy - 20260403.R")
+  source("./Scripts/4. CalculationLifeExpectancy.R")
   
   # Load packages
   library(systemfit)
@@ -28,7 +24,7 @@
   # ## toevoeging vanwege xlsx package
   library(writexl)
   library(readxl)
-    
+  library(here)
   
   ###############################################################################
   ### Define table to run
@@ -89,6 +85,10 @@
   
   sTableName <- "AG2024"
   
+  runname <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+  run_folder <- here("Runs", "Deelopdracht 7", runname)
+  if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
+  
   # Kannisto
   kannisto <- FALSE # TRUE, sinds AG2022 moet deze op FALSE staan
   
@@ -100,28 +100,19 @@
   
   # Covid
   applyCOVID <- TRUE
-  COVIDjaren   <- 2022:2023
-  COVID_parameterbestand <- "20260428 - AG2026 COVID-19 parameters 2022_2023_stap4.xlsx"
-  
+  COVIDjaren   <- 2022:2025
+  COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
+
+
   ###############################################################################
   ### Read in Dxt and Ext
   ###############################################################################
-  frak_beta_m  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 6 , rows = 10:130)
-  frak_kappa_m <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 11, rows = 60:61 )
-  eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 9 , rows = 68    )
-  frak_beta_f  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 18, rows = 10:130)
-  frak_kappa_f <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 23, rows = 60:61 )
-  eta_f        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden 2026", colNames=FALSE, cols = 21, rows = 68    )
-  
-  objCOVIDparameters <- list()
-  objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m, eta = eta_m)
-  objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f, eta = eta_f)                                  
   
   # Load mortality data
   lData_EU <- list()
   lData_NL <- list()
   lData_Country <- list()
-  sInputFolder <- paste0("Input data/", MorTable_inp)
+  sInputFolder <- here("Input data", MorTable_inp)
   
   for(gender in c("M", "F")) {
     # Read data from files	(to check: how many levels upwards in the folder structure?)
@@ -132,15 +123,14 @@
   sTableName <- paste0("AG", tail(vY_NL,1)+1)
  
   ### Create the output folder if it does not already exist
-  sOutputFolder <- paste0("Output/", sTableName, "(", MorTable, ") - Covid ", applyCOVID, " - startpunt ", apply_2026_changes, "/")
-  if( !dir.exists(sOutputFolder) ) dir.create(sOutputFolder)
+  
  
   #########################################
   ### Calibration of the AG-model
   #########################################
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2)
   objAG_TS_est <- fnEstimateTS_AG2020(objAG=objAG_est, dRelTol=1E-18)
-  saveRDS(object=objAG_TS_est, file=paste0(sOutputFolder, sTableName, "_TS_est.rds", sep=""))
+  saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
   
   #########################################
   ### Projecting mortality in future
@@ -177,24 +167,33 @@
                                                  lData_NL_incl_age_91,
                                                  eyNL,
                                                  vY_NL)
-    ### TODO: Geen idee of dit klopt.
-    #objAG_est <- objAG_BE
   }
 
   ### Apply COVID parameters over the Pre-Covid results
   if (applyCOVID==TRUE) {
+    frak_beta_m  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 6 , rows = 10:130)
+    frak_kappa_m <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 11, rows = 60:(59+length(COVIDjaren)))
+    eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 9 , rows = 68    )
+    frak_beta_f  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 18, rows = 10:130)
+    frak_kappa_f <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 23, rows = 60:(59+length(COVIDjaren)))
+    eta_f        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 21, rows = 68    )
+    
+    objCOVIDparameters <- list()
+    objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m, eta = eta_m)
+    objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f, eta = eta_f)
+    
     objAG_BE <- fnApplyCOVIDparameters(objAG_BE, objCOVIDparameters)
     objAG_BE_all <- fnApplyCOVIDparameters_all(objAG_BE_all, objCOVIDparameters)
   }
 
-  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=paste0(sOutputFolder, sTableName, "_BE_proj_all.xlsx"))
-  saveRDS(object=objAG_BE_all, file=paste0(sOutputFolder, sTableName, "_BE.rds", sep=""))
-  fnWritePars(objAG=objAG_est, sFile=paste0(sOutputFolder, sTableName, "_pars.xlsx"))
-  saveRDS(object=objAG_est, file=paste0(sOutputFolder, sTableName, "_est.rds", sep=""))
+  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_BE_proj_all.xlsx")))
+  saveRDS(object=objAG_BE_all, file=here(run_folder, paste0(runname, "_BE.rds")))
+  fnWritePars(objAG=objAG_est, sFile=here(run_folder, paste0(runname, "_pars.xlsx")))
+  saveRDS(object=objAG_est, file=here(run_folder, paste0(runname, "_est.rds")))
 
   # Calculate projected kappa
   Kappa_proj <- Project_kappa(objAG=objAG_est, iT_fut=iT_fut)
-  saveRDS(object=Kappa_proj, file=paste0(sOutputFolder, sTableName, "_kappa.rds", sep=""))
+  saveRDS(object=Kappa_proj, file=here(run_folder, paste0(runname, "_kappa.rds")))
 
 
   # # Stochastic simulations
@@ -222,7 +221,7 @@
 #     if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
 #     for(gender in 1:2) {
 #       # Observed mortality
-#       vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[as.character(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
+#       vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[O(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
 #       vT_obs <- as.integer(names(vQ_obs))
 #       # Fitted and projected mortality
 #       vQ_model <- objAG_BE[[gender]][ , as.character(vX[age])]
@@ -339,7 +338,7 @@ openxlsx::write.xlsx(list(Male_P = LE_P_male,
                           Male_C = LE_C_male, 
                           Female_P = LE_P_female, 
                           Female_C = LE_C_female), 
-                     file=paste0(sOutputFolder, sTableName,"_LE.xlsx"), rowNames = TRUE) 
+                     file=here(run_folder, paste0(runname, "_LE.xlsx")), rowNames = TRUE)
 
 
 
