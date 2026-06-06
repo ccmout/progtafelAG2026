@@ -41,9 +41,13 @@ dfDagen_per_week_relatief <- dfDagen_per_week/colSums(dfDagen_per_week, na.rm=TR
 
 vanaf_jaar <- 2022
 tot_jaar <- 2025
-iAge_treshold_beta <- 55
+iAge_treshold_beta <- 0
 aantal_jaar <- length(vanaf_jaar:tot_jaar)
 max_leeftijd <- 90
+
+# Frakbeta cluster from age 0 until iAge_indiv_from - 1
+bClusterAges <- TRUE
+iAge_indiv_from <- 41
 
 data <- c()
 for(gender in c("Male", "Female")) {
@@ -90,8 +94,26 @@ Data_weekly_female <- data %>%
   filter(year <= tot_jaar)
 
 source("./Scripts/2. Fit AG-model 2022 - weekmodel.R")
-lRes_kalibratie_m <- fnFitWeekmodel(Data_weekly_male, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
-lRes_kalibratie_v <- fnFitWeekmodel(Data_weekly_female, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
+lRes_kalibratie_m <- fnFitWeekmodel_withClustering(
+  Data_weekly_male,
+  iAge_treshold_beta,
+  dRelTol = 1e-18,
+  iStep = 2,
+  bClusterAges = bClusterAges,
+  iAge_indiv_from = iAge_indiv_from
+)
+
+lRes_kalibratie_v <- fnFitWeekmodel_withClustering(
+  Data_weekly_female,
+  iAge_treshold_beta,
+  dRelTol = 1e-18,
+  iStep = 2,
+  bClusterAges = bClusterAges,
+  iAge_indiv_from = iAge_indiv_from
+)
+
+# lRes_kalibratie_m <- fnFitWeekmodel(Data_weekly_male, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
+# lRes_kalibratie_v <- fnFitWeekmodel(Data_weekly_female, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
 
 #pas normalisatie toe
 const.beta_m <- sum(lRes_kalibratie_m$frakbeta[56:(max_leeftijd+1)])
