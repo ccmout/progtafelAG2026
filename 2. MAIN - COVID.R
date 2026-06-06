@@ -254,6 +254,15 @@ mFrakX_t <- dtData_CBS_sel[(Week==1 & Age==55), .(Gender, Year, FrakXt)]
 FrakBeta_long <- dtData_CBS_sel[(Week==1 & Year==tot_jaar), .(Age, Gender, FrakBx)]
 print(mFrakX_t)
 
+
+# Afronden op 15 signifante cijfers
+dfFrakKappa_M <- dfFrakKappa_M %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakKappa_F <- dfFrakKappa_F %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakBeta_M <- dfFrakBeta_M %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakBeta_F <- dfFrakBeta_F %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+mFrakX_t <- mFrakX_t %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+FrakBeta_long <- FrakBeta_long %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+
 output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M, 
                               "FrakKappa F" = dfFrakKappa_F,
                               "FrakBeta M" = dfFrakBeta_M,
@@ -261,6 +270,8 @@ output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M,
                               "FrakX" = mFrakX_t, 
                               "FrakBx" = FrakBeta_long)
 
+
+browser()
 write.xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
 
 

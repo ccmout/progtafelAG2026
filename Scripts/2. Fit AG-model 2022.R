@@ -136,15 +136,26 @@ fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol
 		mDxt_EU_hat <- mExt_EU * mMxt_EU_old
 		mDxt_NL_hat <- mExt_NL * mMxt_NL
 
-		objAG[[gender]] <- list(mDxt_EU = mDxt_EU, mExt_EU = mExt_EU,
-								mDxt_NL = mDxt_NL, mExt_NL = mExt_NL,
-								vX = vX, vY_EU = vY_EU, vY_NL = vY_NL,
-			
-								vA = vA, vB = vB, vK = vK, vK_old = vK_old,
-								vAlpha = vAlpha, vBeta = vBeta, vKappa = vKappa,
-
-								mMxt_EU = mMxt_EU, mMxt_EU_old = mMxt_EU_old, mMxt_NL = mMxt_NL, 
-								mDxt_EU_hat = mDxt_EU_hat, mDxt_NL_hat = mDxt_NL_hat )
+		objAG[[gender]] <- list(
+		  mDxt_EU = mDxt_EU, 
+		  mExt_EU = mExt_EU,
+		  mDxt_NL = mDxt_NL, 
+		  mExt_NL = mExt_NL,
+			vX = vX, 
+			vY_EU = vY_EU, 
+			vY_NL = vY_NL,
+			vA = signif(vA, digits = 15),
+			vB = signif(vB, digits = 15),
+			vK = signif(vK, digits = 15),
+			vK_old = vK_old,
+			vAlpha = signif(vAlpha, digits = 15),
+			vBeta = signif(vBeta, digits = 15),
+			vKappa = signif(vKappa, digits = 15),
+      mMxt_EU = mMxt_EU, 
+			mMxt_EU_old = mMxt_EU_old, 
+			mMxt_NL = mMxt_NL, 
+			Dxt_EU_hat = mDxt_EU_hat, 
+			mDxt_NL_hat = mDxt_NL_hat)
 		}
 
 	return(objAG)
@@ -775,7 +786,7 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
     ####################################################################
     
     #Translate mtx to qtx
-    lQg_NL_tx[[vG[g]]] <- 1 - exp( - mMu_NL_tx )
+    lQg_NL_tx[[vG[g]]] <- signif(1 - exp( - mMu_NL_tx ), digits = 15)
     dimnames(lQg_NL_tx[[vG[g]]]) <- list(Year=seq(from=vY_NL[1], by=1, length.out=iT_his+iT_fut-iT_his_diff+1), Age=0:120)
     
     
@@ -894,8 +905,8 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     ####################################################################
     
     #Translate mtx to qtx
-    lQg_EU_tx[[vG[g]]] <- 1 - exp( - mMu_EU_tx )
-    lQg_NL_tx[[vG[g]]] <- 1 - exp( - mMu_NL_tx )
+    lQg_EU_tx[[vG[g]]] <- signif(1 - exp( - mMu_EU_tx ), digits = 15)
+    lQg_NL_tx[[vG[g]]] <- signif(1 - exp( - mMu_NL_tx ), digits = 15)
     dimnames(lQg_EU_tx[[vG[g]]]) <- list(Year=seq(from=vY_EU[1], by=1, length.out=iT_his+iT_fut), Age=0:120)
     dimnames(lQg_NL_tx[[vG[g]]]) <- list(Year=seq(from=vY_NL[1], by=1, length.out=iT_his+iT_fut-iT_his_diff+1), Age=0:120)
     
@@ -906,7 +917,9 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     objAG[[g]]$vBeta <- vBeta_extrap
   }
   
-  list(lQg_NL_tx=lQg_NL_tx, lQg_EU_tx=lQg_EU_tx, objAG=objAG)
+  list(lQg_NL_tx=lQg_NL_tx, 
+       lQg_EU_tx=lQg_EU_tx, 
+       objAG=objAG)
 }
 
 
@@ -1194,6 +1207,9 @@ fnApplyCOVIDparameters = function(objAG_BE,
     
     # Transformeer matrix met sterfte-intensiteiten terug naar een matrix met sterftekansen
     objAG_BE[[g]] <- 1 - exp(-lMg_tx)
+    
+    # Rond sterftekansen af op 15 significante cijfers
+    objAG_BE[[g]] <- signif(objAG_BE[[g]], digits = 15)
   }
   
   return(objAG_BE)
@@ -1251,6 +1267,8 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all,
     
     # Transformeer matrix met sterfte-intensiteiten terug naar een matrix met sterftekansen
     objAG_BE_all$lQg_NL_tx[[g]] <- 1 - exp(-lMg_tx)
+    
+    objAG_BE_all$lQg_NL_tx[[g]] <- signif(objAG_BE_all$lQg_NL_tx[[g]], digits = 15)
   }
   
   return(objAG_BE_all)

@@ -130,8 +130,8 @@
   ### Calibration of the AG-model
   #########################################
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2)
-  objAG_TS_est <- fnEstimateTS_AG2020(objAG=objAG_est, dRelTol=1E-18)
-  saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
+  #objAG_TS_est <- fnEstimateTS_AG2020(objAG=objAG_est, dRelTol=1E-18)
+  #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
   
   #########################################
   ### Projecting mortality in future
