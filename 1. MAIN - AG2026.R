@@ -92,8 +92,8 @@
   # Kannisto
   kannisto <- FALSE # TRUE, sinds AG2022 moet deze op FALSE staan
   
-  # Changes 2026
-  apply_2026_changes <- TRUE
+  # Startpunt middeling
+  apply_new_startingpoint <- TRUE
   s <- 5
   c <- 25
   startpunt_convergentie <- 2019
@@ -102,7 +102,8 @@
   applyCOVID <- TRUE
   COVIDjaren   <- 2022:2025
   COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
-
+  eta_discount <- 0.95
+  eta_limit <- 0.25
 
   ###############################################################################
   ### Read in Dxt and Ext
@@ -146,7 +147,7 @@
   }
   
   ### Change startingpoint projected mortaility and middelen
-  if (apply_2026_changes==TRUE){
+  if (apply_new_startingpoint==TRUE){
     
     lData_NL_incl_age_91 <- list()
     for(gender in c("M", "F")) {
@@ -182,8 +183,14 @@
     objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m, eta = eta_m)
     objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f, eta = eta_f)
     
-    objAG_BE <- fnApplyCOVIDparameters(objAG_BE, objCOVIDparameters)
-    objAG_BE_all <- fnApplyCOVIDparameters_all(objAG_BE_all, objCOVIDparameters)
+    objAG_BE <- fnApplyCOVIDparameters(objAG_BE, 
+                                       objCOVIDparameters,
+                                       eta_discount,
+                                       eta_limit)
+    objAG_BE_all <- fnApplyCOVIDparameters_all(objAG_BE_all, 
+                                               objCOVIDparameters,
+                                               eta_discount,
+                                               eta_limit)
   }
 
   fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_BE_proj_all.xlsx")))

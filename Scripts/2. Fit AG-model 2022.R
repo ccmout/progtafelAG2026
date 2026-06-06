@@ -1144,7 +1144,10 @@ ApplyKannisto_mtxi = function(mtxi, ages, kannisto_nages=30, kannisto_nobs=15)
 }
 
 
-fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
+fnApplyCOVIDparameters = function(objAG_BE, 
+                                  objCOVIDparameters,
+                                  eta_discount = 0.95,
+                                  eta_limit = 0.25) {
   
   # Loop over the geslachten
   for (g in 1:2) {
@@ -1153,8 +1156,6 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
     COVIDjaren <- objCOVIDparameters[[g]]$COVIDjaren
     frak_beta  <- objCOVIDparameters[[g]]$frak_beta$X1
     frak_kappa <- objCOVIDparameters[[g]]$frak_kappa$X1
-    eta        <- objCOVIDparameters[[g]]$eta$X1
-    frak_kappa_limiet <- rem_impact*frak_kappa[2]*0.5    #if there is a remaining impact, currently programmed as 0,5 of last frak_kappa; default = 0 
     
     # Transformeer matrix met sterftekansen naar een matrix met sterfte-intensiteiten  
     lMg_tx <- - log(1 - objAG_BE[[g]])
@@ -1181,7 +1182,10 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
         # trek frak_kappa door
         idx_covid <- match(max(COVIDjaren), COVIDjaren)  # index van het laatste beschikbare covidjaar
         h <- t - max(COVIDjaren)
-        frak_kappa_start <- frak_kappa[idx_covid];         frak_kappa_t <- frak_kappa_start * eta^h + (1 - eta^h) * frak_kappa_limiet
+        
+        frak_kappa_start <- frak_kappa[idx_covid]
+        eta_star <- eta_limit + ((1 - eta_limit) * eta_discount^h)
+        frak_kappa_t <- frak_kappa_start * eta_star
         
         # pas de COVID paramters toe
         lMg_tx[idx,] <- lMg_tx[idx,] * exp(frak_beta * frak_kappa_t)
@@ -1196,7 +1200,11 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
 }
 
 
-fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impact=0) {
+fnApplyCOVIDparameters_all = function(objAG_BE_all, 
+                                      objCOVIDparameters,
+                                      eta_discount = 0.95,
+                                      eta_limit = 0.25
+                                      ) {
   
   # Loop over the geslachten
   for (g in 1:2) {
@@ -1205,8 +1213,6 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impac
     COVIDjaren <- objCOVIDparameters[[g]]$COVIDjaren
     frak_beta  <- objCOVIDparameters[[g]]$frak_beta$X1
     frak_kappa <- objCOVIDparameters[[g]]$frak_kappa$X1
-    eta        <- objCOVIDparameters[[g]]$eta$X1
-    frak_kappa_limiet <- rem_impact*frak_kappa[2]*0.5   
     
     # Transformeer matrix met sterftekansen naar een matrix met sterfte-intensiteiten  
     lMg_tx <- - log(1 - objAG_BE_all$lQg_NL_tx[[g]])
@@ -1233,8 +1239,10 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impac
         # trek frak_kappa door
         idx_covid <- match(max(COVIDjaren), COVIDjaren)  # index van het laatste beschikbare covidjaar
         h <- t - max(COVIDjaren)
-        frak_kappa_start <- frak_kappa[idx_covid]; 
-        frak_kappa_t <- frak_kappa_start * eta^h + (1 - eta^h) * frak_kappa_limiet
+        
+        frak_kappa_start <- frak_kappa[idx_covid]
+        eta_star <- eta_limit + ((1 - eta_limit) * eta_discount^h)
+        frak_kappa_t <- frak_kappa_start * eta_star
         
         # pas de COVID paramters toe
         lMg_tx[idx,] <- lMg_tx[idx,] * exp(frak_beta * frak_kappa_t)
