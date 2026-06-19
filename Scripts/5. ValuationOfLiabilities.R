@@ -4,9 +4,8 @@ library(dplyr)
 library(here)
 
 ### VOORdat je dit runt, doe ff ctrl + shift + f10
-### Hallo Daar
 
-runname <- "8. eta 0.95, etalimiet 0.25"
+runname <- "0. AG2024"
 run_folder <- here("Runs", "Deelopdracht 7", runname)
 
 Q2024M <- read_excel(here(run_folder, paste0(runname, "_BE_proj_all.xlsx")), sheet = "NLMale")

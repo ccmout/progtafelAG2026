@@ -454,7 +454,7 @@ fnWritePars <- function(objAG, sFile) {
   list_output <- list(mAge_effects, mPeriod_effects, mTS_pars,mSigma_CSO,mChol)
   names(list_output) <- cbind("Age effects","Period effects","TS pars","Sigma_CSO","Cholesky_CSO")
   
-  openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
+  write_xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
 }
 
@@ -468,7 +468,7 @@ fnWriteBE <- function(objAG_BE, sFile) {
     # Output NL
     list_output[[paste0("NL", gender)]] <- t(objAG_BE$lQg_NL_tx[[gender]])
   }
-  openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
+  write_xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
   
   
@@ -483,7 +483,7 @@ fnWriteBE_all <- function(objAG_BE, sFile) {
     # Output EU
     list_output[[paste0("EU", gender)]] <- t(objAG_BE$lQg_EU_tx[[gender]])
   }
-  openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
+  write_xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
  
 }
 

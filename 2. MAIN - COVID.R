@@ -16,7 +16,7 @@ library(data.table)
 # tot r. 151 (Projecting mortality in future) ook gedraaid te worden voor 
 # de Mu_xt forecasts.
 
-run_name <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+run_name <- "8. check"
 run_folder <- here("Runs", "Deelopdracht 7", runname)
 
 input_folder <- here("Input data", "Deelopdracht 6")
@@ -116,8 +116,8 @@ lRes_kalibratie_v <- fnFitWeekmodel_withClustering(
 # lRes_kalibratie_v <- fnFitWeekmodel(Data_weekly_female, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
 
 #pas normalisatie toe
-const.beta_m <- sum(lRes_kalibratie_m$frakbeta[56:(max_leeftijd+1)])
-const.beta_v <- sum(lRes_kalibratie_v$frakbeta[56:(max_leeftijd+1)])
+const.beta_m <- sum(lRes_kalibratie_m$frakbeta[0:(max_leeftijd+1)])
+const.beta_v <- sum(lRes_kalibratie_v$frakbeta[0:(max_leeftijd+1)])
 
 #const.beta_m <- sqrt(sum(lRes_kalibratie_m$frakbeta[56:(max_leeftijd+1)]^2))
 #const.beta_v <- sqrt(sum(lRes_kalibratie_v$frakbeta[56:(max_leeftijd+1)]^2))
@@ -129,15 +129,13 @@ vFrakbeta_v <- lRes_kalibratie_v$frakbeta/const.beta_v
 mFrakKappa_m <- lRes_kalibratie_m$frakkappa * const.beta_m
 mFrakKappa_v <- lRes_kalibratie_v$frakkappa * const.beta_v
 
-dtData_CBS_sel <- readRDS("dtData_CBS_sel_zp.rds")
+dtData_CBS_sel <- readRDS(here(run_folder, paste0(runname, "_dtData_CBS.rds")))
 dtData_CBS_sel <- as.data.table(dtData_CBS_sel)
 dtData_CBS_sel <- dtData_CBS_sel %>% 
   filter(Year >= vanaf_jaar) %>%
   filter(Year <= tot_jaar) %>%
   filter(Age >= iAge_treshold_beta) %>%
   filter(Age <= 90)
-
-#write.xlsx(dtData_CBS_sel, file="test_b.xlsx")
 
 # Initialize output objects
 dtKappa_week_M <- dtBeta_M <- dtKappa_week_F <- dtBeta_F <- NULL
@@ -270,9 +268,7 @@ output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M,
                               "FrakX" = mFrakX_t, 
                               "FrakBx" = FrakBeta_long)
 
-
-browser()
-write.xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
+write_xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
 
 
 

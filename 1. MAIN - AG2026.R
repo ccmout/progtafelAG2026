@@ -23,6 +23,7 @@
   library(mvtnorm)
   # ## toevoeging vanwege xlsx package
   library(writexl)
+  library(openxlsx2)
   library(readxl)
   library(here)
   
@@ -83,9 +84,9 @@
   AoI <- c(1,66) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
   vCountries_LE <- c("NL","EU") # select countries for which life expectancy is calculated; always have NL as first
   
-  sTableName <- "AG2024"
+  # sTableName <- "AG2024"
   
-  runname <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+  runname <- "8. check"
   run_folder <- here("Runs", "Deelopdracht 7", runname)
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
   
@@ -94,16 +95,20 @@
   
   # Startpunt middeling
   apply_new_startingpoint <- TRUE
-  s <- 5
-  c <- 25
-  startpunt_convergentie <- 2019
+  if (apply_new_startingpoint==TRUE){
+    s <- 5
+    c <- 25
+    startpunt_convergentie <- 2019
+  }
   
   # Covid
   applyCOVID <- TRUE
-  COVIDjaren   <- 2022:2025
-  COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
-  eta_discount <- 0.95
-  eta_limit <- 0.25
+  if (applyCOVID==TRUE) {
+    COVIDjaren   <- 2022:2025
+    COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
+    eta_discount <- 0.95
+    eta_limit <- 0.25
+  }
 
   ###############################################################################
   ### Read in Dxt and Ext
@@ -174,14 +179,12 @@
   if (applyCOVID==TRUE) {
     frak_beta_m  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 6 , rows = 10:130)
     frak_kappa_m <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 11, rows = 60:(59+length(COVIDjaren)))
-    eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 9 , rows = 68    )
     frak_beta_f  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 18, rows = 10:130)
     frak_kappa_f <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 23, rows = 60:(59+length(COVIDjaren)))
-    eta_f        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 21, rows = 68    )
     
     objCOVIDparameters <- list()
-    objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m, eta = eta_m)
-    objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f, eta = eta_f)
+    objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m)
+    objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f)
     
     objAG_BE <- fnApplyCOVIDparameters(objAG_BE, 
                                        objCOVIDparameters,
@@ -341,7 +344,7 @@ LE_C_female <- t(fnLifeExpCoh(objAG_BE_all$lQg_NL_tx$Female[vY_NL2 >=start_year,
 rownames(LE_C_female) <- ages_LE
 colnames(LE_C_female) <- start_year:(start_year + 117)
 
-openxlsx::write.xlsx(list(Male_P = LE_P_male, 
+write_xlsx(list(Male_P = LE_P_male, 
                           Male_C = LE_C_male, 
                           Female_P = LE_P_female, 
                           Female_C = LE_C_female), 
