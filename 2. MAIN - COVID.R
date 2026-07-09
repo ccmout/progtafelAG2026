@@ -16,8 +16,8 @@ library(data.table)
 # tot r. 151 (Projecting mortality in future) ook gedraaid te worden voor 
 # de Mu_xt forecasts.
 
-run_name <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
-run_folder <- here("Runs", "Deelopdracht 7", runname)
+run_name <- "2. Nieuwe HMD"
+run_folder <- here("Runs", "Raymond validatie", runname)
 
 input_folder <- here("Input data", "Deelopdracht 6")
 
@@ -40,13 +40,13 @@ dfDagen_per_week_relatief <- dfDagen_per_week/colSums(dfDagen_per_week, na.rm=TR
 
 
 vanaf_jaar <- 2022
-tot_jaar <- 2025
-iAge_treshold_beta <- 0
+tot_jaar <- 2023
+iAge_treshold_beta <- 55
 aantal_jaar <- length(vanaf_jaar:tot_jaar)
 max_leeftijd <- 90
 
 # Frakbeta cluster from age 0 until iAge_indiv_from - 1
-bClusterAges <- TRUE
+bClusterAges <- FALSE
 iAge_indiv_from <- 41
 
 data <- c()

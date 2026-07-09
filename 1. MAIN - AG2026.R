@@ -83,10 +83,8 @@
   AoI <- c(1,66) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
   vCountries_LE <- c("NL","EU") # select countries for which life expectancy is calculated; always have NL as first
   
-  sTableName <- "AG2024"
-  
-  runname <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
-  run_folder <- here("Runs", "Deelopdracht 7", runname)
+  runname <- "3. incl startpunt, excl Covid"
+  run_folder <- here("Runs", "Raymond validatie", runname)
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
   
   # Kannisto
@@ -99,11 +97,11 @@
   startpunt_convergentie <- 2019
   
   # Covid
-  applyCOVID <- TRUE
-  COVIDjaren   <- 2022:2025
+  applyCOVID <- FALSE
+  COVIDjaren   <- 2022:2023
   COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
-  eta_discount <- 0.95
-  eta_limit <- 0.25
+  eta_discount <- 0.75
+  eta_limit <- 0
 
   ###############################################################################
   ### Read in Dxt and Ext
@@ -130,18 +128,17 @@
   ### Calibration of the AG-model
   #########################################
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2)
-  #objAG_TS_est <- fnEstimateTS_AG2020(objAG=objAG_est, dRelTol=1E-18)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
   
   #########################################
   ### Projecting mortality in future
   #########################################
   if(kannisto==TRUE){
-    objAG_BE <- fnProjectAG_BE_kannisto(objAG=objAG_est, iT_fut=iT_fut)
+    # objAG_BE <- fnProjectAG_BE_kannisto(objAG=objAG_est, iT_fut=iT_fut)
     objAG_BE_all <- fnProjectAG_BE_all_kannisto(objAG=objAG_est, iT_fut=iT_fut)
     
   } else {
-    objAG_BE <- fnProjectAG_BE_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
+    # objAG_BE <- fnProjectAG_BE_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
     objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
     objAG_est <- objAG_BE_all$objAG
   }
@@ -154,13 +151,13 @@
       lData_NL_incl_age_91[[gender]] <- fnReadData(sPath=sInputFolder, Countries=sCountry, Gender=gender, vX=0:91, vY=vY_NL) ### Notice we also read age 91, because it is used for averaging for age 90.
     }
     
-    objAG_BE <- fnApplyNewStartingpoints(s,
-                                         c,
-                                         startpunt_convergentie,
-                                         objAG_BE,
-                                         lData_NL_incl_age_91,
-                                         eyNL,
-                                         vY_NL)
+    # objAG_BE <- fnApplyNewStartingpoints(s,
+    #                                      c,
+    #                                      startpunt_convergentie,
+    #                                      objAG_BE,
+    #                                      lData_NL_incl_age_91,
+    #                                      eyNL,
+    #                                      vY_NL)
     objAG_BE_all <- fnApplyNewStartingpoints_all(s,
                                                  c,
                                                  startpunt_convergentie,
@@ -174,19 +171,19 @@
   if (applyCOVID==TRUE) {
     frak_beta_m  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 6 , rows = 10:130)
     frak_kappa_m <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 11, rows = 60:(59+length(COVIDjaren)))
-    eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 9 , rows = 68    )
+    #eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 9 , rows = 68    )
     frak_beta_f  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 18, rows = 10:130)
     frak_kappa_f <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 23, rows = 60:(59+length(COVIDjaren)))
-    eta_f        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 21, rows = 68    )
+    #eta_f        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 21, rows = 68    )
     
     objCOVIDparameters <- list()
-    objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m, eta = eta_m)
-    objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f, eta = eta_f)
+    objCOVIDparameters[["M"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_m, frak_kappa = frak_kappa_m)
+    objCOVIDparameters[["F"]] <- list(COVIDjaren = COVIDjaren, frak_beta = frak_beta_f, frak_kappa = frak_kappa_f)
     
-    objAG_BE <- fnApplyCOVIDparameters(objAG_BE, 
-                                       objCOVIDparameters,
-                                       eta_discount,
-                                       eta_limit)
+    # objAG_BE <- fnApplyCOVIDparameters(objAG_BE, 
+    #                                    objCOVIDparameters,
+    #                                    eta_discount,
+    #                                    eta_limit)
     objAG_BE_all <- fnApplyCOVIDparameters_all(objAG_BE_all, 
                                                objCOVIDparameters,
                                                eta_discount,

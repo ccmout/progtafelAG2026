@@ -366,7 +366,12 @@ fnReturnEstimatedPars_AG2020 <- function(vEstimatedPars) {
 	mRho[3,4] <- mRho[4,3] <- fnInvLogitCorr(vEstimatedPars[16])
 	vSigma <- exp(vEstimatedPars[7:10])
 	mSigma <- vSigma %o% vSigma * mRho
-	list( Drift = vEstimatedPars[c(1,2,5,6)], MR = fnInvLogitCorr(vEstimatedPars[3:4]), Sigma=mSigma, Rho=mRho )
+	list( 
+	  Drift = signif(vEstimatedPars[c(1,2,5,6)], digits=15),
+	  MR = signif(fnInvLogitCorr(vEstimatedPars[3:4]), digits=15),
+	  Sigma = signif(mSigma, digits = 15),
+	  Rho = signif(mRho, digits = 15)
+	)
 }
 fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	
@@ -375,6 +380,10 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  sigma[1], sigma[2], sigma[3], sigma[4],	
 	#  rho[1,2], rho[1,3], rho[1,4], 
 	#  rho[2,3], rho[2,4], rho[3,4] )
+  
+  ### 
+  set.seed(42)
+  
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
@@ -385,6 +394,7 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 		stop("Optimization did not converge succesfully!"); flush.console()
 	}
 	lEstimatedPars <- fnReturnEstimatedPars_AG2020(as.numeric(objOptim$par))
+	
 	return(lEstimatedPars)
 }
 
@@ -421,7 +431,11 @@ fnWritePars <- function(objAG, sFile) {
   # Drift, constant mean reversion parameters
   mTS_pars <- matrix(data=NA, nrow=6, ncol=1)
   rownames(mTS_pars) <- c("theta_M", "theta_F","c_M", "c_F", "a_M", "a_F")
-  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-20)
+  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
+  
+  ### Check if parameters equal the parameters used in calculations.
+  # objTS_to_check <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+  # print(identical(objTS, objTS_to_check))
   mTS_pars[1:4,] <- objTS$Drift
   mTS_pars[5:6,] <- objTS$MR
   # write.xlsx(x=mTS_pars, file=sFile, sheetName="TS pars", col.names=FALSE, row.names=TRUE, append=TRUE)
@@ -454,6 +468,7 @@ fnWritePars <- function(objAG, sFile) {
   list_output <- list(mAge_effects, mPeriod_effects, mTS_pars,mSigma_CSO,mChol)
   names(list_output) <- cbind("Age effects","Period effects","TS pars","Sigma_CSO","Cholesky_CSO")
   
+  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "_TS.rds")))
   openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
 }
@@ -800,6 +815,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
   
   # Estimate the TS model and extract regression results
   objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -959,6 +975,7 @@ fnProjectAG_sim_kannisto <- function(objAG, iT_fut=120, iSims=10) {
   
   # Estimate the TS model and extract regression results
   objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
