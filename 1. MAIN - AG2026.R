@@ -23,6 +23,7 @@
   library(mvtnorm)
   # ## toevoeging vanwege xlsx package
   library(writexl)
+  library(openxlsx2)
   library(readxl)
   library(here)
   
@@ -92,9 +93,11 @@
   
   # Startpunt middeling
   apply_new_startingpoint <- TRUE
-  s <- 5
-  c <- 25
-  startpunt_convergentie <- 2019
+  if (apply_new_startingpoint==TRUE){
+    s <- 5
+    c <- 25
+    startpunt_convergentie <- 2019
+  }
   
   # Covid
   applyCOVID <- FALSE
@@ -171,6 +174,7 @@
   if (applyCOVID==TRUE) {
     frak_beta_m  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 6 , rows = 10:130)
     frak_kappa_m <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 11, rows = 60:(59+length(COVIDjaren)))
+
     #eta_m        <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 9 , rows = 68    )
     frak_beta_f  <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 18, rows = 10:130)
     frak_kappa_f <- openxlsx::read.xlsx(COVID_parameterbestand, sheet = "Parameterwaarden", colNames=FALSE, cols = 23, rows = 60:(59+length(COVIDjaren)))
@@ -338,7 +342,7 @@ LE_C_female <- t(fnLifeExpCoh(objAG_BE_all$lQg_NL_tx$Female[vY_NL2 >=start_year,
 rownames(LE_C_female) <- ages_LE
 colnames(LE_C_female) <- start_year:(start_year + 117)
 
-openxlsx::write.xlsx(list(Male_P = LE_P_male, 
+write_xlsx(list(Male_P = LE_P_male, 
                           Male_C = LE_C_male, 
                           Female_P = LE_P_female, 
                           Female_C = LE_C_female), 
