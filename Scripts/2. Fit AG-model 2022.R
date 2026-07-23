@@ -881,6 +881,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     B_lm <- lm(log(tail(vB,kannisto_nobs)) ~ tail(vX,kannisto_nobs))
     for (i in x_kannisto) { vB_extrap[i+1] <- B_lm$coefficients[1] + B_lm$coefficients[2]*i }
     vB_extrap <- exp(vB_extrap)
+	vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
     
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_EU_tx[ , iX_cal + 1:iX_kan] <- ApplyKannisto_mtx(mtx=mMu_EU_tx[ , 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
@@ -901,8 +902,21 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
     mMu_NL_tx_diff <- mMu_NL_tx / mMu_EU_tx[(dim(mMu_EU_tx)[1]-dim(mMu_NL_tx)[1]+1):(dim(mMu_EU_tx)[1]),]
     # Bepaal beta door voor de laatste steekproefperiode de geextrapoleerde alpha af te halen van log(Mu) en te delen door kappa
-    vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+
+	vBeta_extrap <- vBeta
     
+    vBeta_extrap[x_kannisto + 1] <-
+      (log(mMu_NL_tx_diff[length(vY_EU), x_kannisto + 1]) -
+         vAlpha_extrap[x_kannisto + 1]) /
+      mTS_BE[2 + g, length(vY_EU)]
+    
+	#vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+
+	vA_extrap <- signif(vA_extrap,15)
+    vB_extrap <- signif(vB_extrap,15)
+    vAlpha_extrap <- signif(vAlpha_extrap,15)
+    vBeta_extrap <- signif(vBeta_extrap,15)
+	
     ####################################################################
     # Bepaal de sterfte intensiteiten voor leeftijden 91 t/m 120 o.b.v. de doorgetrokken A, B, alpha en beta (_extrap) voor alle jaren 
     # Loop over ages and years
@@ -933,9 +947,9 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     objAG[[g]]$vBeta <- vBeta_extrap
   }
   
-  list(lQg_NL_tx=lQg_NL_tx, 
+  return(list(lQg_NL_tx=lQg_NL_tx, 
        lQg_EU_tx=lQg_EU_tx, 
-       objAG=objAG)
+       objAG=objAG))
 }
 
 
