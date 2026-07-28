@@ -3,3 +3,6 @@
 .Ruserdata
 .Rproj.user/
 Runs/
+
+renv/library/
+renv/staging/
