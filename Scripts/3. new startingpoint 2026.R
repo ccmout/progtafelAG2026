@@ -26,8 +26,6 @@ fnApplyNewStartingpoints <- function(s, c, startpunt_convergentie, objAG_BE, lDa
       Mxt_years[lft,] <- (Mxt_years_pre[lft - 1,] + Mxt_years_pre[lft,] + Mxt_years_pre[lft + 1,])/3
     }
     
-    
-    
     ### Middel log(mu)
     mM <- rowSums(Mxt_years)/s
     
@@ -56,7 +54,6 @@ fnApplyNewStartingpoints <- function(s, c, startpunt_convergentie, objAG_BE, lDa
       rownames(mu_adj) <- future_years
       colnames(mu_adj) <- 0:120
       
-      
       idx <- which(rownames(mort_impr) == ceiling(t_ref))
      
       count = 1
@@ -68,11 +65,14 @@ fnApplyNewStartingpoints <- function(s, c, startpunt_convergentie, objAG_BE, lDa
         count = count+1
       }
       
-      
       mu_orig = mu_proj[(nrow(mu_proj)-nrow(mu_adj)+1):nrow(mu_proj),]
       
-      q_adj <-  1 - exp(-mu_adj)
+      q_adj <- 1 - exp(-mu_adj)
       q_orig <- 1 - exp(-mu_orig)
+      
+      ### Rond de sterfkansen op 15 significante cijfers
+      q_adj <- signif(q_adj, digits = 15)
+      q_orig <- signif(q_orig, digits = 15)
      
       ### Neem oorspronkelijke geschatte sterfkansen
       q_c = q_orig
@@ -93,6 +93,8 @@ fnApplyNewStartingpoints <- function(s, c, startpunt_convergentie, objAG_BE, lDa
         objAG_BE[[geslacht]][year_index, ] = q_c[year_index, ]
       }
     }
+    # Round on 15 significant numbers
+    objAG_BE[[geslacht]] <- signif(objAG_BE[[geslacht]], digits = 15)
   }
   objAG_BE
 }
@@ -169,6 +171,10 @@ fnApplyNewStartingpoints_all <- function(s, c, startpunt_convergentie, objAG_BE_
       q_adj <-  1 - exp(-mu_adj)
       q_orig <- 1 - exp(-mu_orig)
       
+      ### Rond de sterfkansen op 15 significante cijfers
+      q_adj <- signif(q_adj, digits = 15)
+      q_orig <- signif(q_orig, digits = 15)
+      
       ### Neem oorspronkelijke geschatte sterfkansen
       q_c = q_orig
       
@@ -188,6 +194,8 @@ fnApplyNewStartingpoints_all <- function(s, c, startpunt_convergentie, objAG_BE_
         objAG_BE_all$lQg_NL_tx[[geslacht]][year_index, ] = q_c[year_index, ]
       }
     }
+    # Rond af op 15 significante cijfers
+    objAG_BE_all$lQg_NL_tx[[geslacht]] <- signif(objAG_BE_all$lQg_NL_tx[[geslacht]], digits = 15)
   }
   return(objAG_BE_all)
 }

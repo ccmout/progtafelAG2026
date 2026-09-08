@@ -136,15 +136,26 @@ fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol
 		mDxt_EU_hat <- mExt_EU * mMxt_EU_old
 		mDxt_NL_hat <- mExt_NL * mMxt_NL
 
-		objAG[[gender]] <- list(mDxt_EU = mDxt_EU, mExt_EU = mExt_EU,
-								mDxt_NL = mDxt_NL, mExt_NL = mExt_NL,
-								vX = vX, vY_EU = vY_EU, vY_NL = vY_NL,
-			
-								vA = vA, vB = vB, vK = vK, vK_old = vK_old,
-								vAlpha = vAlpha, vBeta = vBeta, vKappa = vKappa,
-
-								mMxt_EU = mMxt_EU, mMxt_EU_old = mMxt_EU_old, mMxt_NL = mMxt_NL, 
-								mDxt_EU_hat = mDxt_EU_hat, mDxt_NL_hat = mDxt_NL_hat )
+		objAG[[gender]] <- list(
+		  mDxt_EU = mDxt_EU, 
+		  mExt_EU = mExt_EU,
+		  mDxt_NL = mDxt_NL, 
+		  mExt_NL = mExt_NL,
+			vX = vX, 
+			vY_EU = vY_EU, 
+			vY_NL = vY_NL,
+			vA = signif(vA, digits = 15),
+			vB = signif(vB, digits = 15),
+			vK = signif(vK, digits = 15),
+			vK_old = vK_old,
+			vAlpha = signif(vAlpha, digits = 15),
+			vBeta = signif(vBeta, digits = 15),
+			vKappa = signif(vKappa, digits = 15),
+      mMxt_EU = mMxt_EU, 
+			mMxt_EU_old = mMxt_EU_old, 
+			mMxt_NL = mMxt_NL, 
+			Dxt_EU_hat = mDxt_EU_hat, 
+			mDxt_NL_hat = mDxt_NL_hat)
 		}
 
 	return(objAG)
@@ -355,7 +366,12 @@ fnReturnEstimatedPars_AG2020 <- function(vEstimatedPars) {
 	mRho[3,4] <- mRho[4,3] <- fnInvLogitCorr(vEstimatedPars[16])
 	vSigma <- exp(vEstimatedPars[7:10])
 	mSigma <- vSigma %o% vSigma * mRho
-	list( Drift = vEstimatedPars[c(1,2,5,6)], MR = fnInvLogitCorr(vEstimatedPars[3:4]), Sigma=mSigma, Rho=mRho )
+	list( 
+	  Drift = signif(vEstimatedPars[c(1,2,5,6)], digits=15),
+	  MR = signif(fnInvLogitCorr(vEstimatedPars[3:4]), digits=15),
+	  Sigma = signif(mSigma, digits = 15),
+	  Rho = signif(mRho, digits = 15)
+	)
 }
 fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	
@@ -364,6 +380,10 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  sigma[1], sigma[2], sigma[3], sigma[4],	
 	#  rho[1,2], rho[1,3], rho[1,4], 
 	#  rho[2,3], rho[2,4], rho[3,4] )
+  
+  ### 
+  set.seed(42)
+  
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
@@ -374,6 +394,7 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 		stop("Optimization did not converge succesfully!"); flush.console()
 	}
 	lEstimatedPars <- fnReturnEstimatedPars_AG2020(as.numeric(objOptim$par))
+	
 	return(lEstimatedPars)
 }
 
@@ -410,7 +431,11 @@ fnWritePars <- function(objAG, sFile) {
   # Drift, constant mean reversion parameters
   mTS_pars <- matrix(data=NA, nrow=6, ncol=1)
   rownames(mTS_pars) <- c("theta_M", "theta_F","c_M", "c_F", "a_M", "a_F")
-  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-20)
+  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
+  
+  ### Check if parameters equal the parameters used in calculations.
+  # objTS_to_check <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+  # print(identical(objTS, objTS_to_check))
   mTS_pars[1:4,] <- objTS$Drift
   mTS_pars[5:6,] <- objTS$MR
   # write.xlsx(x=mTS_pars, file=sFile, sheetName="TS pars", col.names=FALSE, row.names=TRUE, append=TRUE)
@@ -443,6 +468,7 @@ fnWritePars <- function(objAG, sFile) {
   list_output <- list(mAge_effects, mPeriod_effects, mTS_pars,mSigma_CSO,mChol)
   names(list_output) <- cbind("Age effects","Period effects","TS pars","Sigma_CSO","Cholesky_CSO")
   
+  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "_TS.rds")))
   openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
 }
@@ -457,7 +483,7 @@ fnWriteBE <- function(objAG_BE, sFile) {
     # Output NL
     list_output[[paste0("NL", gender)]] <- t(objAG_BE$lQg_NL_tx[[gender]])
   }
-  openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
+  write_xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
   
   
@@ -472,7 +498,7 @@ fnWriteBE_all <- function(objAG_BE, sFile) {
     # Output EU
     list_output[[paste0("EU", gender)]] <- t(objAG_BE$lQg_EU_tx[[gender]])
   }
-  openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
+  write_xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
  
 }
 
@@ -775,7 +801,7 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
     ####################################################################
     
     #Translate mtx to qtx
-    lQg_NL_tx[[vG[g]]] <- 1 - exp( - mMu_NL_tx )
+    lQg_NL_tx[[vG[g]]] <- signif(1 - exp( - mMu_NL_tx ), digits = 15)
     dimnames(lQg_NL_tx[[vG[g]]]) <- list(Year=seq(from=vY_NL[1], by=1, length.out=iT_his+iT_fut-iT_his_diff+1), Age=0:120)
     
     
@@ -789,6 +815,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
   
   # Estimate the TS model and extract regression results
   objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -854,6 +881,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     B_lm <- lm(log(tail(vB,kannisto_nobs)) ~ tail(vX,kannisto_nobs))
     for (i in x_kannisto) { vB_extrap[i+1] <- B_lm$coefficients[1] + B_lm$coefficients[2]*i }
     vB_extrap <- exp(vB_extrap)
+	vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
     
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_EU_tx[ , iX_cal + 1:iX_kan] <- ApplyKannisto_mtx(mtx=mMu_EU_tx[ , 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
@@ -874,8 +902,21 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
     mMu_NL_tx_diff <- mMu_NL_tx / mMu_EU_tx[(dim(mMu_EU_tx)[1]-dim(mMu_NL_tx)[1]+1):(dim(mMu_EU_tx)[1]),]
     # Bepaal beta door voor de laatste steekproefperiode de geextrapoleerde alpha af te halen van log(Mu) en te delen door kappa
-    vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+
+	vBeta_extrap <- vBeta
     
+    vBeta_extrap[x_kannisto + 1] <-
+      (log(mMu_NL_tx_diff[length(vY_EU), x_kannisto + 1]) -
+         vAlpha_extrap[x_kannisto + 1]) /
+      mTS_BE[2 + g, length(vY_EU)]
+    
+	#vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+
+	vA_extrap <- signif(vA_extrap,15)
+    vB_extrap <- signif(vB_extrap,15)
+    vAlpha_extrap <- signif(vAlpha_extrap,15)
+    vBeta_extrap <- signif(vBeta_extrap,15)
+	
     ####################################################################
     # Bepaal de sterfte intensiteiten voor leeftijden 91 t/m 120 o.b.v. de doorgetrokken A, B, alpha en beta (_extrap) voor alle jaren 
     # Loop over ages and years
@@ -894,8 +935,8 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     ####################################################################
     
     #Translate mtx to qtx
-    lQg_EU_tx[[vG[g]]] <- 1 - exp( - mMu_EU_tx )
-    lQg_NL_tx[[vG[g]]] <- 1 - exp( - mMu_NL_tx )
+    lQg_EU_tx[[vG[g]]] <- signif(1 - exp( - mMu_EU_tx ), digits = 15)
+    lQg_NL_tx[[vG[g]]] <- signif(1 - exp( - mMu_NL_tx ), digits = 15)
     dimnames(lQg_EU_tx[[vG[g]]]) <- list(Year=seq(from=vY_EU[1], by=1, length.out=iT_his+iT_fut), Age=0:120)
     dimnames(lQg_NL_tx[[vG[g]]]) <- list(Year=seq(from=vY_NL[1], by=1, length.out=iT_his+iT_fut-iT_his_diff+1), Age=0:120)
     
@@ -906,7 +947,9 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     objAG[[g]]$vBeta <- vBeta_extrap
   }
   
-  list(lQg_NL_tx=lQg_NL_tx, lQg_EU_tx=lQg_EU_tx, objAG=objAG)
+  return(list(lQg_NL_tx=lQg_NL_tx, 
+       lQg_EU_tx=lQg_EU_tx, 
+       objAG=objAG))
 }
 
 
@@ -946,6 +989,7 @@ fnProjectAG_sim_kannisto <- function(objAG, iT_fut=120, iSims=10) {
   
   # Estimate the TS model and extract regression results
   objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -1144,7 +1188,10 @@ ApplyKannisto_mtxi = function(mtxi, ages, kannisto_nages=30, kannisto_nobs=15)
 }
 
 
-fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
+fnApplyCOVIDparameters = function(objAG_BE, 
+                                  objCOVIDparameters,
+                                  eta_discount = 0.95,
+                                  eta_limit = 0.25) {
   
   # Loop over the geslachten
   for (g in 1:2) {
@@ -1153,8 +1200,6 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
     COVIDjaren <- objCOVIDparameters[[g]]$COVIDjaren
     frak_beta  <- objCOVIDparameters[[g]]$frak_beta$X1
     frak_kappa <- objCOVIDparameters[[g]]$frak_kappa$X1
-    eta        <- objCOVIDparameters[[g]]$eta$X1
-    frak_kappa_limiet <- rem_impact*frak_kappa[2]*0.5    #if there is a remaining impact, currently programmed as 0,5 of last frak_kappa; default = 0 
     
     # Transformeer matrix met sterftekansen naar een matrix met sterfte-intensiteiten  
     lMg_tx <- - log(1 - objAG_BE[[g]])
@@ -1181,7 +1226,10 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
         # trek frak_kappa door
         idx_covid <- match(max(COVIDjaren), COVIDjaren)  # index van het laatste beschikbare covidjaar
         h <- t - max(COVIDjaren)
-        frak_kappa_start <- frak_kappa[idx_covid];         frak_kappa_t <- frak_kappa_start * eta^h + (1 - eta^h) * frak_kappa_limiet
+        
+        frak_kappa_start <- frak_kappa[idx_covid]
+        eta_star <- eta_limit + ((1 - eta_limit) * eta_discount^h)
+        frak_kappa_t <- frak_kappa_start * eta_star
         
         # pas de COVID paramters toe
         lMg_tx[idx,] <- lMg_tx[idx,] * exp(frak_beta * frak_kappa_t)
@@ -1190,13 +1238,20 @@ fnApplyCOVIDparameters = function(objAG_BE, objCOVIDparameters,rem_impact=0) {
     
     # Transformeer matrix met sterfte-intensiteiten terug naar een matrix met sterftekansen
     objAG_BE[[g]] <- 1 - exp(-lMg_tx)
+    
+    # Rond sterftekansen af op 15 significante cijfers
+    objAG_BE[[g]] <- signif(objAG_BE[[g]], digits = 15)
   }
   
   return(objAG_BE)
 }
 
 
-fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impact=0) {
+fnApplyCOVIDparameters_all = function(objAG_BE_all, 
+                                      objCOVIDparameters,
+                                      eta_discount = 0.95,
+                                      eta_limit = 0.25
+                                      ) {
   
   # Loop over the geslachten
   for (g in 1:2) {
@@ -1205,8 +1260,6 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impac
     COVIDjaren <- objCOVIDparameters[[g]]$COVIDjaren
     frak_beta  <- objCOVIDparameters[[g]]$frak_beta$X1
     frak_kappa <- objCOVIDparameters[[g]]$frak_kappa$X1
-    eta        <- objCOVIDparameters[[g]]$eta$X1
-    frak_kappa_limiet <- rem_impact*frak_kappa[2]*0.5   
     
     # Transformeer matrix met sterftekansen naar een matrix met sterfte-intensiteiten  
     lMg_tx <- - log(1 - objAG_BE_all$lQg_NL_tx[[g]])
@@ -1233,8 +1286,10 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impac
         # trek frak_kappa door
         idx_covid <- match(max(COVIDjaren), COVIDjaren)  # index van het laatste beschikbare covidjaar
         h <- t - max(COVIDjaren)
-        frak_kappa_start <- frak_kappa[idx_covid]; 
-        frak_kappa_t <- frak_kappa_start * eta^h + (1 - eta^h) * frak_kappa_limiet
+        
+        frak_kappa_start <- frak_kappa[idx_covid]
+        eta_star <- eta_limit + ((1 - eta_limit) * eta_discount^h)
+        frak_kappa_t <- frak_kappa_start * eta_star
         
         # pas de COVID paramters toe
         lMg_tx[idx,] <- lMg_tx[idx,] * exp(frak_beta * frak_kappa_t)
@@ -1243,6 +1298,8 @@ fnApplyCOVIDparameters_all = function(objAG_BE_all, objCOVIDparameters,rem_impac
     
     # Transformeer matrix met sterfte-intensiteiten terug naar een matrix met sterftekansen
     objAG_BE_all$lQg_NL_tx[[g]] <- 1 - exp(-lMg_tx)
+    
+    objAG_BE_all$lQg_NL_tx[[g]] <- signif(objAG_BE_all$lQg_NL_tx[[g]], digits = 15)
   }
   
   return(objAG_BE_all)

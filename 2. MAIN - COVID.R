@@ -16,7 +16,8 @@ library(data.table)
 # tot r. 151 (Projecting mortality in future) ook gedraaid te worden voor 
 # de Mu_xt forecasts.
 
-run_name <- "4. AG2026 incl. startpuntmiddeling, COVID 2022-2023"
+
+run_name <- "8. check"
 run_folder <- here("Runs", "Deelopdracht 7", runname)
 
 input_folder <- here("Input data", "Deelopdracht 6")
@@ -40,10 +41,14 @@ dfDagen_per_week_relatief <- dfDagen_per_week/colSums(dfDagen_per_week, na.rm=TR
 
 
 vanaf_jaar <- 2022
-tot_jaar <- 2025
+tot_jaar <- 2023
 iAge_treshold_beta <- 55
 aantal_jaar <- length(vanaf_jaar:tot_jaar)
 max_leeftijd <- 90
+
+# Frakbeta cluster from age 0 until iAge_indiv_from - 1
+bClusterAges <- FALSE
+iAge_indiv_from <- 41
 
 data <- c()
 for(gender in c("Male", "Female")) {
@@ -90,12 +95,30 @@ Data_weekly_female <- data %>%
   filter(year <= tot_jaar)
 
 source("./Scripts/2. Fit AG-model 2022 - weekmodel.R")
-lRes_kalibratie_m <- fnFitWeekmodel(Data_weekly_male, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
-lRes_kalibratie_v <- fnFitWeekmodel(Data_weekly_female, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
+lRes_kalibratie_m <- fnFitWeekmodel_withClustering(
+  Data_weekly_male,
+  iAge_treshold_beta,
+  dRelTol = 1e-18,
+  iStep = 2,
+  bClusterAges = bClusterAges,
+  iAge_indiv_from = iAge_indiv_from
+)
+
+lRes_kalibratie_v <- fnFitWeekmodel_withClustering(
+  Data_weekly_female,
+  iAge_treshold_beta,
+  dRelTol = 1e-18,
+  iStep = 2,
+  bClusterAges = bClusterAges,
+  iAge_indiv_from = iAge_indiv_from
+)
+
+# lRes_kalibratie_m <- fnFitWeekmodel(Data_weekly_male, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
+# lRes_kalibratie_v <- fnFitWeekmodel(Data_weekly_female, iAge_treshold_beta, dRelTol=1e-18, iStep=2)
 
 #pas normalisatie toe
-const.beta_m <- sum(lRes_kalibratie_m$frakbeta[56:(max_leeftijd+1)])
-const.beta_v <- sum(lRes_kalibratie_v$frakbeta[56:(max_leeftijd+1)])
+const.beta_m <- sum(lRes_kalibratie_m$frakbeta[0:(max_leeftijd+1)])
+const.beta_v <- sum(lRes_kalibratie_v$frakbeta[0:(max_leeftijd+1)])
 
 #const.beta_m <- sqrt(sum(lRes_kalibratie_m$frakbeta[56:(max_leeftijd+1)]^2))
 #const.beta_v <- sqrt(sum(lRes_kalibratie_v$frakbeta[56:(max_leeftijd+1)]^2))
@@ -107,15 +130,13 @@ vFrakbeta_v <- lRes_kalibratie_v$frakbeta/const.beta_v
 mFrakKappa_m <- lRes_kalibratie_m$frakkappa * const.beta_m
 mFrakKappa_v <- lRes_kalibratie_v$frakkappa * const.beta_v
 
-dtData_CBS_sel <- readRDS("dtData_CBS_sel_zp.rds")
+dtData_CBS_sel <- readRDS(here(run_folder, paste0(runname, "_dtData_CBS.rds")))
 dtData_CBS_sel <- as.data.table(dtData_CBS_sel)
 dtData_CBS_sel <- dtData_CBS_sel %>% 
   filter(Year >= vanaf_jaar) %>%
   filter(Year <= tot_jaar) %>%
   filter(Age >= iAge_treshold_beta) %>%
   filter(Age <= 90)
-
-#write.xlsx(dtData_CBS_sel, file="test_b.xlsx")
 
 # Initialize output objects
 dtKappa_week_M <- dtBeta_M <- dtKappa_week_F <- dtBeta_F <- NULL
@@ -232,6 +253,15 @@ mFrakX_t <- dtData_CBS_sel[(Week==1 & Age==55), .(Gender, Year, FrakXt)]
 FrakBeta_long <- dtData_CBS_sel[(Week==1 & Year==tot_jaar), .(Age, Gender, FrakBx)]
 print(mFrakX_t)
 
+
+# Afronden op 15 signifante cijfers
+dfFrakKappa_M <- dfFrakKappa_M %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakKappa_F <- dfFrakKappa_F %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakBeta_M <- dfFrakBeta_M %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+dfFrakBeta_F <- dfFrakBeta_F %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+mFrakX_t <- mFrakX_t %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+FrakBeta_long <- FrakBeta_long %>% mutate(across(where(is.numeric), ~ signif(., digits = 15)))
+
 output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M, 
                               "FrakKappa F" = dfFrakKappa_F,
                               "FrakBeta M" = dfFrakBeta_M,
@@ -239,7 +269,7 @@ output_covid_to_excel <- list("FrakKappa M" = dfFrakKappa_M,
                               "FrakX" = mFrakX_t, 
                               "FrakBx" = FrakBeta_long)
 
-write.xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
+write_xlsx(output_covid_to_excel, file=here(run_folder, paste0(runname, "_COVID-19 parametersschattingen.xlsx")))
 
 
 

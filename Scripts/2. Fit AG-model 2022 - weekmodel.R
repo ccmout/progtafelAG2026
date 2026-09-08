@@ -1,3 +1,4 @@
+library(data.table)
 library(dplyr)
 
 # The following code is written by Frank van Berkum, based on earlier code
@@ -215,4 +216,156 @@ fnFitWeekmodel <- function(dfData, iAge_teshold_beta, dRelTol=1E-6, iStep=2) {
 	#dimnames(mMxt) <- list(Age=vX, Year=vY)
 	colnames(mKappa) <- c(unique(dfData$year))
 	list(frakbeta=vBeta, frakkappa=mKappa, mxt=mMu_hat) #output 
+}
+
+
+# Prepare data for fitting with optional clustering:
+# - ages < iAge_treshold_beta remain as-is (not fitted by your optimiser anyway)
+# - ages iAge_treshold_beta .. iAge_indiv_from-1 are clustered into ONE group
+# - ages >= iAge_indiv_from remain individual
+# Result ages are reindexed to dense 0..K (required by fnFitWeekmodel)
+fnPrepareWeekmodelData <- function(dfData,
+                                   bClusterAges = FALSE,
+                                   iAge_treshold_beta,
+                                   iAge_indiv_from = NULL) {
+  
+  DT <- as.data.table(copy(dfData))
+  stopifnot(all(c("year","age","week","dxt","ext") %in% names(DT)))
+  DT[, age := as.integer(age)]
+  max_age <- max(DT$age, na.rm = TRUE)
+  
+  # If clustering off: identity mapping and unchanged data
+  if (!isTRUE(bClusterAges)) {
+    age_map <- data.table(age_original = 0:max_age, age_group = 0:max_age)
+    return(list(
+      data_fit = DT,
+      age_map = age_map,
+      max_age = max_age,
+      iAge_treshold_beta_fit = iAge_treshold_beta,
+      bClusterAges = FALSE,
+      iAge_indiv_from = NA_integer_
+    ))
+  }
+  
+  # Default: no clustering if iAge_indiv_from not supplied
+  if (is.null(iAge_indiv_from)) iAge_indiv_from <- iAge_treshold_beta
+  iAge_indiv_from <- as.integer(iAge_indiv_from)
+  
+  # If indiv_from <= threshold: no cluster block exists
+  if (iAge_indiv_from <= iAge_treshold_beta) {
+    age_map <- data.table(age_original = 0:max_age, age_group = 0:max_age)
+    return(list(
+      data_fit = DT,
+      age_map = age_map,
+      max_age = max_age,
+      iAge_treshold_beta_fit = iAge_treshold_beta,
+      bClusterAges = FALSE,
+      iAge_indiv_from = iAge_indiv_from
+    ))
+  }
+  
+  # Allow indiv_from to be max_age+1 (meaning: cluster from threshold through max_age)
+  if (iAge_indiv_from > (max_age + 1L)) {
+    stop("iAge_indiv_from cannot be larger than max_age + 1 in the data.")
+  }
+  
+  # --- Reindexing logic (dense indices required by fnFitWeekmodel) ---
+  # Keep ages < threshold as identical indices
+  # Make one cluster index at exactly 'threshold'
+  # Shift ages >= indiv_from down by (size_of_cluster - 1)
+  #
+  # Mapping original age a -> grouped index:
+  # if a < threshold            : g = a
+  # if threshold <= a < indiv   : g = threshold          (clustered)
+  # if a >= indiv               : g = threshold + 1 + (a - indiv)
+  #
+  # This ensures grouped ages are exactly 0..K with no gaps.
+  DT[, age_group := fifelse(
+    age < iAge_treshold_beta,
+    age,
+    fifelse(age < iAge_indiv_from,
+            iAge_treshold_beta,
+            iAge_treshold_beta + 1L + (age - iAge_indiv_from))
+  )]
+  
+  # Aggregate deaths/exposures within each grouped age (correct likelihood; no overweighting)
+  by_cols <- intersect(c("year","week","gender"), names(DT))
+  DTg <- DT[, .(
+    dxt = sum(dxt, na.rm = TRUE),
+    ext = sum(ext, na.rm = TRUE)
+  ), by = c(by_cols, "age_group")]
+  
+  setnames(DTg, "age_group", "age")
+  setorderv(DTg, c(intersect(c("gender","year","week"), names(DTg)), "age"))
+  
+  # Build mapping original age -> grouped index (for expanding output)
+  age_map <- data.table(age_original = 0:max_age)
+  age_map[, age_group := fifelse(
+    age_original < iAge_treshold_beta,
+    age_original,
+    fifelse(age_original < iAge_indiv_from,
+            iAge_treshold_beta,
+            iAge_treshold_beta + 1L + (age_original - iAge_indiv_from))
+  )]
+  
+  # NOTE: threshold in grouped space stays the same number because we kept
+  # ages < threshold untouched and the cluster lives at index = threshold.
+  list(
+    data_fit = DTg,
+    age_map = age_map,
+    max_age = max_age,
+    iAge_treshold_beta_fit = iAge_treshold_beta,
+    bClusterAges = TRUE,
+    iAge_indiv_from = iAge_indiv_from
+  )
+}
+
+# Expand grouped betas back to individual ages 0..max_age
+# - ages in the cluster block all receive the same group beta (index = threshold)
+fnExpandBetaToIndividualAges <- function(vBeta_groups, age_map, max_age) {
+  beta_age <- numeric(max_age + 1L)
+  for (a in 0:max_age) {
+    g <- age_map[age_original == a, age_group]
+    beta_age[a + 1L] <- vBeta_groups[g + 1L]  # +1 because R is 1-based
+  }
+  names(beta_age) <- as.character(0:max_age)
+  beta_age
+}
+
+# Wrapper: toggles clustering on/off without touching fnFitWeekmodel internals
+fnFitWeekmodel_withClustering <- function(dfData,
+                                          iAge_treshold_beta,
+                                          dRelTol = 1E-6,
+                                          iStep = 2,
+                                          bClusterAges = FALSE,
+                                          iAge_indiv_from = NULL) {
+  
+  # No clustering: run original behaviour
+  if (!isTRUE(bClusterAges)) {
+    return(fnFitWeekmodel(dfData, iAge_treshold_beta, dRelTol = dRelTol, iStep = iStep))
+  }
+  
+  prep <- fnPrepareWeekmodelData(dfData,
+                                 bClusterAges = TRUE,
+                                 iAge_treshold_beta = iAge_treshold_beta,
+                                 iAge_indiv_from = iAge_indiv_from)
+  
+  # Fit on transformed data (same fnFitWeekmodel, threshold already compatible)
+  res <- fnFitWeekmodel(prep$data_fit,
+                        prep$iAge_treshold_beta_fit,
+                        dRelTol = dRelTol,
+                        iStep = iStep)
+  
+  # Attach grouped betas and expand to individual ages
+  res$frakbeta_groups <- res$frakbeta
+  res$frakbeta <- fnExpandBetaToIndividualAges(res$frakbeta_groups,
+                                               prep$age_map,
+                                               prep$max_age)
+  
+  # Store metadata (helps debugging/interpretation)
+  res$age_map <- prep$age_map
+  res$iAge_indiv_from <- prep$iAge_indiv_from
+  res$iAge_treshold_beta_fit <- prep$iAge_treshold_beta_fit
+  
+  res
 }
