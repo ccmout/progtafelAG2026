@@ -1006,6 +1006,7 @@ fnProjectAG_sim_kannisto <- function(objAG, iT_fut=120, iSims=10) {
   aTS_sim["NL-M", as.character(vY_NL), ] <- matrix(data=tail(objAG[["M"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   aTS_sim["NL-F", as.character(vY_NL), ] <- matrix(data=tail(objAG[["F"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   # Now create forecasts, but loop over the years instead of over simulations
+  if (fixed_Sims) set.seed(654987)
   for(i in 1:iT_fut) {
     mEps <- t(mvrnorm(n=iSims, mu=rep(0, 4), Sigma=mCov))
     for(j in 1:4) {
@@ -1071,6 +1072,7 @@ fnProjectAG_sim_alternatiefB <- function(objAG, iT_fut=120, iSims=10) {
   aTS_sim["NL-M", as.character(vY_NL), ] <- matrix(data=tail(objAG[["M"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   aTS_sim["NL-F", as.character(vY_NL), ] <- matrix(data=tail(objAG[["F"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   # Now create forecasts, but loop over the years instead of over simulations
+  if (fixed_Sims) set.seed(654987)
   for(i in 1:iT_fut) {
     mEps <- t(mvrnorm(n=iSims, mu=rep(0, 4), Sigma=mCov))
     for(j in 1:4) {

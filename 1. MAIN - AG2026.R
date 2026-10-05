@@ -34,6 +34,7 @@
   MorTable <- 'EU19NL19(AG2026)'
   MorTable_inp <-  MorTable #'EU19NL19' # added for purpose of using other input data, default is equal to MorTable
   #MorTable_inp <-  'EU20NL20 (COVID-SC v10)'
+  #MorTable_inp <-  'EU23NL24'
   
   # Choices: 
   # 1)  AG2016: EU14NL15
@@ -78,21 +79,25 @@
   
   # dynamic variables 
   iSims <- 100 # 100          # PUT TO 0 TO USE PREVIOUS SIMULATIONS
+  fixed_Sims <- TRUE #makes the Simulations fixed and not as random drawings
   iT_fut <- 231 ## 250
   quantiles <- c(0.50, 0.975, 0.025)  # gewenste kwantielen van levensverwachting
   YoI <- c(2020, 2022)  # gewenste jaren voor levensverwachting o.b.v. leeftijden voor simulatie
-  AoI <- c(1,66) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
+#  AoI <- c(1,66) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
+  AoI <- c(1,26,46,66,86) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
   vCountries_LE <- c("NL","EU") # select countries for which life expectancy is calculated; always have NL as first
   
-  runname <- "3. incl startpunt, excl Covid"
-  run_folder <- here("Runs", "Raymond validatie", runname)
+  runname <- "deelopdracht_1a. incl startpunt, excl Covid"
+#  run_folder <- here("Runs", "Raymond validatie", runname)
+  run_folder <- here("Runs", runname)
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
   
   # Kannisto
   kannisto <- FALSE # TRUE, sinds AG2022 moet deze op FALSE staan
   
   # Startpunt middeling
-  apply_new_startingpoint <- TRUE
+#  apply_new_startingpoint <- TRUE
+  apply_new_startingpoint <- FALSE
   if (apply_new_startingpoint==TRUE){
     s <- 5
     c <- 25
@@ -125,7 +130,6 @@
   sTableName <- paste0("AG", tail(vY_NL,1)+1)
  
   ### Create the output folder if it does not already exist
-  
  
   #########################################
   ### Calibration of the AG-model
@@ -221,29 +225,31 @@
   ### Write pdf mortality fit vs actual and prediction for all ages and both genders
   ###############################################################################
 
-#   pdf(file.path(sOutputFolder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
-#   vG <- c("Males", "Females")
-#   vCols <- c( "blue", "magenta")
-#   vT_plot <- 1983:2030
-#   for(age in 1:length(vX)) {
-#     if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
-#     for(gender in 1:2) {
-#       # Observed mortality
-#       vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[O(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
-#       vT_obs <- as.integer(names(vQ_obs))
-#       # Fitted and projected mortality
-#       vQ_model <- objAG_BE[[gender]][ , as.character(vX[age])]
-#       vT_model <- as.integer(names(vQ_model))
-# 
-#       # Plot results:
-#       plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
-#       grid(); box()
-#       points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
-#       lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
-#       legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
-#     }
-#   }
-#   dev.off(
+#  pdf(file.path(sOutputFolder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
+  pdf(file=here(run_folder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
+  vG <- c("Males", "Females")
+  vCols <- c( "blue", "magenta")
+  vT_plot <- 1983:2030
+  for(age in 1:length(vX)) {
+    if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
+    for(gender in 1:2) {
+      # Observed mortality
+      vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[as.character(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
+      vT_obs <- as.integer(names(vQ_obs))
+      # Fitted and projected mortality
+      #vQ_model <- objAG_BE$objAG[[gender]][ , as.character(vX[age])]
+      vQ_model <- objAG_BE_all$lQg_NL_tx[[gender]][, as.character(vX[age])]
+      vT_model <- as.integer(names(vQ_model))
+
+      # Plot results:
+      plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
+      grid(); box()
+      points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
+      lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
+      legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
+    }
+  }
+  dev.off()
 #   # 
 #   # ###############################################################################
 #   # ### Output data - Dxt and Ext per country for all years incl. years not used for estimation purposes
@@ -348,7 +354,32 @@ write_xlsx(list(Male_P = LE_P_male,
                           Female_C = LE_C_female), 
                      file=here(run_folder, paste0(runname, "_LE.xlsx")), rowNames = TRUE)
 
-
+pdf(file=here(run_folder, "periode_ en cohort_LE.pdf"), height=7, width=15)
+vG <- c("Males", "Females")
+vCols <- c( "blue", "magenta")
+vT_plot <- 1983:2100
+for(age in AoI) {
+#  if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
+#  for(gender in 1:2) {
+    # Observed mortality
+    #vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[as.character(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
+    #vT_obs <- as.integer(names(vQ_obs))
+    # Fitted and projected mortality
+    #vQ_model <- objAG_BE$objAG[[gender]][ , as.character(vX[age])]
+    #vQ_model <- objAG_BE_all$lQg_NL_tx[[gender]][, as.character(vX[age])]
+    #vT_model <- as.integer(names(vQ_model))
+    vy_LE_P_male <- 
+    vT_LE <- as.integer(names(vQ_model))
+    
+    # Plot results:
+    plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
+    grid(); box()
+    #points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
+    lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
+    legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
+#  }
+}
+dev.off()
 
 
 # vect <-
