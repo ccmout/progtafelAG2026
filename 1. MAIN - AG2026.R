@@ -354,33 +354,34 @@ write_xlsx(list(Male_P = LE_P_male,
                           Female_C = LE_C_female), 
                      file=here(run_folder, paste0(runname, "_LE.xlsx")), rowNames = TRUE)
 
-pdf(file=here(run_folder, "periode_ en cohort_LE.pdf"), height=7, width=15)
-vG <- c("Males", "Females")
-vCols <- c( "blue", "magenta")
+# vG <- c("Males", "Females")
+vCols <- c( "lightblue", "red", "darkblue", "magenta")
+vLty <- c(1,1,2,2)
 vT_plot <- 1983:2100
+vLabels <- c("Periodic Male", "Periodic Female", "Cohort Male", "Cohort Female")
+function_name <- "function_temp" 
 for(age in AoI) {
-#  if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
-#  for(gender in 1:2) {
-    # Observed mortality
-    #vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[as.character(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
-    #vT_obs <- as.integer(names(vQ_obs))
-    # Fitted and projected mortality
-    #vQ_model <- objAG_BE$objAG[[gender]][ , as.character(vX[age])]
-    #vQ_model <- objAG_BE_all$lQg_NL_tx[[gender]][, as.character(vX[age])]
-    #vT_model <- as.integer(names(vQ_model))
-    vy_LE_P_male <- 
-    vT_LE <- as.integer(names(vQ_model))
-    
-    # Plot results:
-    plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
-    grid(); box()
-    #points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
-    lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
-    legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
-#  }
+ pdf(file=here(run_folder, paste0("periode_ en cohort_LE_", vX[age], ".pdf")), height=7, width=15)
+  # #  if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
+ for(gender in c("Male", "Female")) {
+  for(LE_type in c("Periodic", "Cohort")) {
+    real_function_name <- paste0("fnLifeExp", substr(LE_type, start = 1, stop = 3))
+    arguments <- list(aQtxg = objAG_BE_all$lQg_NL_tx[[gender]][vY_NL2 >=start_year,], age_ult = 120)
+    calculated_LE <- t(do.call(get(real_function_name), arguments))[age, 1:118]
+    assign(paste0("LE_", LE_type, "_", gender), calculated_LE)
+  }
+ }
+ # Plot results:
+ plot_data <- cbind(get("LE_Periodic_Male"), get("LE_Periodic_Female"), get("LE_Cohort_Male"), get("LE_Cohort_Female")) 
+ y_range <- range(plot_data)
+ par(mar=c(8,4,4,2), xpd = TRUE)
+ plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=y_range, xlab=NA, ylab=NA, main=NULL)
+ grid(); box()
+ #points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
+ for(i in 1:4){lines(x=vT_plot, y=plot_data[,i], lty=vLty[i], col=vCols[i], lwd=1.5)}
+ legend("bottom", inset=c(0, -0.32),legend=paste0(vLabels, " aged ", vX[age]), col=vCols, lty=vLty, lwd=1.5, adj=0.1, bg="white", xpd = TRUE)
+ dev.off()
 }
-dev.off()
-
 
 # vect <-
 # rownames(objAG_BE_all$lQg_NL_tx$Male)[vY_NL2 >= start_year] # vect_EU <-
