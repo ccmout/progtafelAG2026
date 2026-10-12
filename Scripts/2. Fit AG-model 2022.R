@@ -13,11 +13,12 @@ fnMxtFromPars <- function(alpha, beta, kappa, ages, years) {
 }
 
 # A = Fit Lee Carter Process
-fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
-
+# fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
+fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
+    
 	# iStep=1 : kappa[t1] = 0
 	# iStep=2 : sum(kappa[t]) = 0
-	
+
 	mMxt <- mDxt/mExt		# matrix of (raw) central death rates
 	iAges <- length(vX)	# number of ages
 	iYears <- length(vY)	# number of years
@@ -41,8 +42,10 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 			b0 <- b1 - 1 # Starting condition
 			while(abs(b1-b0) > 0.1) {
 				b0 <- b1;    
-				b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa * mExt[j, ]) ) - sum(mDxt[j, ]*vKappa)) / 
-				sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
+				# b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa * mExt[j, ]) ) - sum(mDxt[j, ]*vKappa)) / 
+				# sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
+				b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * (vKappa*w_C) * mExt[j, ]) ) - sum(mDxt[j, ]*(vKappa*w_C))) / 
+				  sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
 			}
 			vBeta[j] <- b1
 		}
@@ -53,8 +56,11 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 			k0 <- k1 - 1 # Starting condition
 			while(abs(k1-k0) > 0.1) {  
 				k0 <- k1;    
-				k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
-				sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
+				# k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
+				# sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
+				k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
+				  sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
+				
 			}
 			vKappa[i] <- k1
 		}
@@ -70,7 +76,8 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
 		for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
 
-		dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
+		# dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
+		dL1 <- sum( t(t(mDxt)*w_C)*log(mExt*mMxt) - t(t(mExt)*w_C)*mMxt - lgamma(t(t(mDxt)*w_C)+1) )
 	}		 # end while loop
 	dimnames(mMxt) <- list(Age=vX, Year=vY)
 	list(alpha=as.numeric(vAlpha), beta=vBeta, kappa=vKappa, ages=vX, years=vY, mxt=mMxt) #output 
@@ -79,12 +86,14 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 
 # Houd deze functie op alleen schatten! Dat is handiger voor plotten van parameters!
 # Output: parameters en gefitte intensities (EU, deltaNL en NL)
-fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
-
+# fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
+fnFitAG2020 <- function(lData_EU, w_EU, lData_NL, w_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
+    
 	# Fit common trend for both genders
 	objM1_EU <- list()
 	for( gender in c("M", "F") ) {
-		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
+		# objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
+		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, w_EU, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 	}
 	
 	# Extend kappa with ML kappa's if necessary
@@ -110,7 +119,8 @@ fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol
 	for( gender in c("M", "F") ) {
 		mxt <- fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=objM1_EU[[gender]]$ages, years=objM1_EU[[gender]]$years)
 		mExt_adj <- lData_NL[[gender]]$Ext * mxt[ , as.character(vY_NL)]
-		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
+		# objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
+		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, w_NL, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 	}
     
 	# Define output variables

@@ -87,7 +87,7 @@
   AoI <- c(1,26,46,66,86) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
   vCountries_LE <- c("NL","EU") # select countries for which life expectancy is calculated; always have NL as first
   
-  runname <- "deelopdracht_1a. incl startpunt, excl Covid"
+  runname <- "deelopdracht_1c. incl startpunt, excl Covid"
 #  run_folder <- here("Runs", "Raymond validatie", runname)
   run_folder <- here("Runs", runname)
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
@@ -120,6 +120,24 @@
   lData_NL <- list()
   lData_Country <- list()
   sInputFolder <- here("Input data", MorTable_inp)
+
+  # wegingsfactoren om specifieke jaren uit te sluiten
+  # de 2017/2018/2019 is opgenomen om te kunnen testen met EU19NL19(AG2026)
+  w_EU <- rep(1, times = length(vY_EU))
+  names(w_EU) <- vY_EU
+  w_NL <- w_EU[names(w_EU) %in% vY_NL]
+  # if (vY_EU[length(vY_EU)] >= 2022) {
+    # w_EU['2020'] <- 0; w_EU['2021'] <- 0; w_EU['2022'] <- 0;
+  # }  
+  # if (vY_EU[length(vY_EU)] >= 2017) {    
+  #   w_EU['2017'] <- 0; w_EU['2018'] <- 0; w_EU['2019'] <- 0;
+  # }
+  # if (vY_NL[length(vY_NL)] >= 2022) {
+    # w_NL['2020'] <- 0; w_NL['2021'] <- 0; w_NL['2022'] <- 0; 
+  # }
+  # if (vY_NL[length(vY_NL)] >= 2017) {
+  #   w_EU['2017'] <- 0; w_EU['2018'] <- 0; w_EU['2019'] <- 0;
+  # }
   
   for(gender in c("M", "F")) {
     # Read data from files	(to check: how many levels upwards in the folder structure?)
@@ -134,7 +152,8 @@
   #########################################
   ### Calibration of the AG-model
   #########################################
-  objAG_est <- fnFitAG2020(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2)
+  # objAG_est <- fnFitAG2020(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2)
+  objAG_est <- fnFitAG2020(lData_EU, w_EU, lData_NL, w_NL, vX, vY_EU, vY_NL, parRest=2)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
   
   #########################################
