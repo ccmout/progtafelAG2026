@@ -18,7 +18,6 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
     
 	# iStep=1 : kappa[t1] = 0
 	# iStep=2 : sum(kappa[t]) = 0
-
 	mMxt <- mDxt/mExt		# matrix of (raw) central death rates
 	iAges <- length(vX)	# number of ages
 	iYears <- length(vY)	# number of years
@@ -30,7 +29,6 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 
 	# Initialise iteration of maximum likelihood
 	dL0 <- -1000000;  dL1 <- -999999;  iteration <- 0
-
 	# We continue to iterate if the improvement in log-likelihood exceeds 10^(-18)
 	while( abs(dL1-dL0) > dRelTol) {
 
@@ -87,8 +85,7 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 # Houd deze functie op alleen schatten! Dat is handiger voor plotten van parameters!
 # Output: parameters en gefitte intensities (EU, deltaNL en NL)
 # fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
-fnFitAG2020 <- function(lData_EU, w_EU, lData_NL, w_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
-    
+fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
 	# Fit common trend for both genders
 	objM1_EU <- list()
 	for( gender in c("M", "F") ) {
@@ -1156,7 +1153,6 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
       kannisto_mtx[t, 1:kannisto_nages] <- kannisto_phi1*exp(kannisto_phi2*kannisto_extrapolateages)/(1+kannisto_phi1*exp(kannisto_phi2*kannisto_extrapolateages))	
  
   }
-  
   kannisto_mtx
 }
 # Closing function for mortality forecast simulations
@@ -1181,7 +1177,7 @@ ApplyKannisto_mtxi = function(mtxi, ages, kannisto_nages=30, kannisto_nobs=15)
     for(i in 1:n.sim) {
       #obtain mx used for extrapolation
       kannisto_mx_obs <- tail(mtxi[t,,i], kannisto_nobs)
-      
+
       #apply transformation
       kannisto_mx_obs <- log(kannisto_mx_obs/(1-kannisto_mx_obs))
       

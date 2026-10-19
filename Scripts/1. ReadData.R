@@ -18,7 +18,7 @@ Read_CountryData = function(path, country.string, genders=c("F", "M"), ages=NULL
   path_expo  <- paste0(path, "/Exposures_", country.string, ".txt")
   death <- read.table(path_death,header=TRUE,dec=".",sep="")
   expo  <- read.table(path_expo,header=TRUE,dec=".",sep="")
-  
+
   data <- c()
   for(G in genders)
   {
