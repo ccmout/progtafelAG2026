@@ -107,10 +107,12 @@
   
   # Covid
   applyCOVID <- FALSE
-  COVIDjaren   <- 2022:2023
-  COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
-  eta_discount <- 0.75
-  eta_limit <- 0
+  if (applyCOVID==TRUE){
+    COVIDjaren   <- 2022:2023
+    COVID_parameterbestand <- here(run_folder, paste0(runname, "_COVID-19 parameters.xlsx"))
+    eta_discount <- 0.75
+    eta_limit <- 0
+  }  
 
   ###############################################################################
   ### Read in Dxt and Ext
