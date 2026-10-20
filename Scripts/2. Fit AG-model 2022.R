@@ -98,12 +98,13 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
 		# objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, w_EU, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 	}
-	
+	browser()
 	# Extend kappa with ML kappa's if necessary
 	for( gender in c("M", "F") ) {	
 		if( max(vY_NL) > max(vY_EU) ) { 
 			objM1_EU[[gender]]$kappa_old  <- objM1_EU[[gender]]$kappa
-			dDrift <- mean( diff( objM1_EU[[gender]]$kappa ) )
+			dDrift <- mean(diff(objM1_EU[[gender]]$kappa[!(objM1_EU[[gender]]$kappa==0)]))
+			# dDrift <- mean( diff( objM1_EU[[gender]]$kappa ) )
 			objM1_EU[[gender]]$kappa <- c(objM1_EU[[gender]]$kappa, tail(objM1_EU[[gender]]$kappa,1) + dDrift * 1:(max(vY_NL)-max(vY_EU)) )
 			objM1_EU[[gender]]$years <- min(vY_EU):max(vY_NL)
 		
@@ -396,7 +397,7 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
   
   ### 
   set.seed(42)
-  
+
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
