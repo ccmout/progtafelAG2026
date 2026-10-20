@@ -39,40 +39,46 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 			b1 <- vBeta[j];  
 			b0 <- b1 - 1 # Starting condition
 			while(abs(b1-b0) > 0.1) {
-				b0 <- b1;    
+				b0 <- b1;  
 				# b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa * mExt[j, ]) ) - sum(mDxt[j, ]*vKappa)) / 
 				# sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
 				b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * (vKappa*w_C) * mExt[j, ]) ) - sum(mDxt[j, ]*(vKappa*w_C))) / 
-				  sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
+				  sum( (exp(vAlpha[j] + b0 * vKappa) * (vKappa^2) * w_C * mExt[j, ]) ) 
 			}
 			vBeta[j] <- b1
 		}
 
 		# Stage 2 optimise over vKappa(t)
 		for (i in 1:iYears) {
-			k1 <- vKappa[i];  
-			k0 <- k1 - 1 # Starting condition
-			while(abs(k1-k0) > 0.1) {  
-				k0 <- k1;    
-				# k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
-				# sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
-				k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
-				  sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
-				
-			}
-			vKappa[i] <- k1
+			ifelse(w_C[i] > 0, {
+		    k1 <- vKappa[i];  
+			  k0 <- k1 - 1 # Starting condition
+			  while(abs(k1-k0) > 0.1) {  
+				  k0 <- k1; 
+				  # k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
+				  # sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
+				  k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
+				    sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]*w_C[i]) )
+			  }
+			  vKappa[i] <- k1
+			}, 
+			vKappa[i] <- 0)
 		}
 
 		# Now apply the constraints
-		const.kappa	<- ifelse(iStep==1, vKappa[1], mean(vKappa))
+    # const.kappa	<- ifelse(iStep==1, vKappa[1], mean(vKappa))
+		const.kappa	<- ifelse(iStep == 1, vKappa[1], sum(vKappa) / sum(w_C > 0))
 		# const.beta	<- sqrt(sum(vBeta^2))
 		const.beta	<- sum(vBeta)
-		vKappa	<- const.beta*(vKappa-const.kappa)        # Ensures that kappas sum to 0
+		vKappa	<- const.beta*(ifelse(w_C > 0, vKappa-const.kappa, 0))        # Ensures that kappas sum to 0
+		# vKappa	<- const.beta*(vKappa-const.kappa)        # Ensures that kappas sum to 0
 		vBeta	<- vBeta/const.beta		                      # Ensures that betas  sum to 1
 		vAlpha	<- vAlpha+vBeta*const.beta*const.kappa    # Alpha needs to be adjusted to compensate
 
-		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
-		for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
+		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ]*w_C)) - log(sum(mExt[j, ]*exp(vBeta[j]*w_C*vKappa)))
+		# for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
+		for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i] * w_C[i])
+		# for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
 
 		# dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
 		dL1 <- sum( t(t(mDxt)*w_C)*log(mExt*mMxt) - t(t(mExt)*w_C)*mMxt - lgamma(t(t(mDxt)*w_C)+1) )

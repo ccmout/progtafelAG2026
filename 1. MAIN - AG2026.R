@@ -394,8 +394,6 @@ for(age in AoI) {
   dev.off()
 }
 
-
-
 # vect <-
 # rownames(objAG_BE_all$lQg_NL_tx$Male)[vY_NL2 >= start_year] # vect_EU <-
 # rownames(objAG_BE_all$lQg_EU_tx$Male)[vY_EU2 >= start_year] #
