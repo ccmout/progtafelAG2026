@@ -7,8 +7,9 @@ set.seed(42)
 
 # function to create forces of mortality from a, b, k
 fnMxtFromPars <- function(alpha, beta, kappa, ages, years) {
-	mxt <- exp( alpha %o% rep(1, length(kappa)) + beta %o% kappa)
+  mxt <- exp( alpha %o% rep(1, length(kappa)) + beta %o% kappa)
 	dimnames(mxt) <- list(Age=ages, Year=years)
+	# mxt <- mxt[,kappa != 0]
 	return(mxt)
 }
 
@@ -98,7 +99,6 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
 		# objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, w_EU, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 	}
-	browser()
 	# Extend kappa with ML kappa's if necessary
 	for( gender in c("M", "F") ) {	
 		if( max(vY_NL) > max(vY_EU) ) { 
@@ -106,23 +106,23 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
 			dDrift <- mean(diff(objM1_EU[[gender]]$kappa[!(objM1_EU[[gender]]$kappa==0)]))
 			# dDrift <- mean( diff( objM1_EU[[gender]]$kappa ) )
 			objM1_EU[[gender]]$kappa <- c(objM1_EU[[gender]]$kappa, tail(objM1_EU[[gender]]$kappa,1) + dDrift * 1:(max(vY_NL)-max(vY_EU)) )
+			names(objM1_EU[[gender]]$kappa) <- min(vY_EU):max(vY_NL)
 			objM1_EU[[gender]]$years <- min(vY_EU):max(vY_NL)
-		
 		} else {
 			objM1_EU[[gender]]$kappa_old <- objM1_EU[[gender]]$kappa
 		}
 	}
 	vY_EU_old <- vY_EU
 	vY_EU <- min(vY_EU):max(vY_NL)
-
 	#fit country specific deviation
 	objM1M1_NL <- list()
 	# build to fit length EU and NL
 	sY <- min(vY_NL) - min(vY_EU)+1
 	sE <- length(objM1_EU[[gender]]$years)  # last element EY
 	for( gender in c("M", "F") ) {
-		mxt <- fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=objM1_EU[[gender]]$ages, years=objM1_EU[[gender]]$years)
-		mExt_adj <- lData_NL[[gender]]$Ext * mxt[ , as.character(vY_NL)]
+	  mxt <- fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=objM1_EU[[gender]]$ages, years=objM1_EU[[gender]]$years)
+		# mExt_adj <- lData_NL[[gender]]$Ext * mxt[ , as.character(vY_NL)]
+	  mExt_adj <- lData_NL[[gender]]$Ext * mxt[, as.character(vY_NL)]
 		# objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, w_NL, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 	}
