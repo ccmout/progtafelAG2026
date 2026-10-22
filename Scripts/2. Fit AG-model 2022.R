@@ -9,7 +9,7 @@ set.seed(42)
 fnMxtFromPars <- function(alpha, beta, kappa, ages, years) {
   mxt <- exp( alpha %o% rep(1, length(kappa)) + beta %o% kappa)
 	dimnames(mxt) <- list(Age=ages, Year=years)
-	# mxt <- mxt[,kappa != 0]
+	# mxt[,kappa == 0] <- 999
 	return(mxt)
 }
 
@@ -63,7 +63,7 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 			  }
 			  vKappa[i] <- k1
 			}, 
-			vKappa[i] <- 0)
+			{vKappa[i] <- 0})
 		}
 
 		# Now apply the constraints

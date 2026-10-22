@@ -149,7 +149,7 @@
   
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
-  
+
   #########################################
   ### Projecting mortality in future
   #########################################
@@ -159,6 +159,71 @@
     
   } else {
     # objAG_BE <- fnProjectAG_BE_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
+    if(sum(ifelse(w_EU == 0, 1, 0)) > 0) {
+      objAG_filt <- objAG_est
+      for(gender in c("M", "F")){
+        objAG_filt[[gender]]$mExt_EU <- objAG_filt[[gender]]$mExt_EU[, w_EU != 0]
+        objAG_filt[[gender]]$mDxt_EU <- objAG_filt[[gender]]$mDxt_EU[, w_EU != 0]
+        objAG_filt[[gender]]$vK <- objAG_filt[[gender]]$vK[w_EU != 0]
+        objAG_filt[[gender]]$vK_old <- objAG_filt[[gender]]$vK_old[w_EU != 0]
+        objAG_filt[[gender]]$mMxt_EU <- objAG_filt[[gender]]$mMxt_EU[, w_EU != 0]
+        objAG_filt[[gender]]$mMxt_EU_old <- objAG_filt[[gender]]$mMxt_EU_old[, w_EU != 0]
+        objAG_filt[[gender]]$Dxt_EU_hat <- objAG_filt[[gender]]$Dxt_EU_hat[, w_EU != 0]
+        objAG_filt[[gender]]$vY_EU <- objAG_filt[[gender]]$vY_EU[w_EU != 0]
+        
+        objAG_filt[[gender]]$mExt_NL <- objAG_filt[[gender]]$mExt_NL[, w_NL != 0]
+        objAG_filt[[gender]]$mDxt_NL <- objAG_filt[[gender]]$mDxt_NL[, w_NL != 0]
+        objAG_filt[[gender]]$vKappa <- objAG_filt[[gender]]$vKappa[w_NL != 0]
+        objAG_filt[[gender]]$mMxt_NL <- objAG_filt[[gender]]$mMxt_NL[, w_NL != 0]
+        objAG_filt[[gender]]$mDxt_NL_hat <- objAG_filt[[gender]]$mDxt_NL_hat[, w_NL != 0]
+        objAG_filt[[gender]]$vY_NL <- objAG_filt[[gender]]$vY_NL[w_NL != 0]
+      }
+
+      # Estimate the TS model and extract regression results
+      obj_filt_TS <- fnEstimateTS_AG2020(objAG=objAG_filt, dRelTol=1E-18)  
+      saveRDS(obj_filt_TS, here(run_folder, paste0(runname, "_filt_TS.rds")))
+      mCov_filt  <- obj_filt_TS$Sigma
+      mRho_filt  <- obj_filt_TS$Rho
+      vDrift_filt <- obj_filt_TS$Drift
+      vMR_filt    <- c(1, 1, obj_filt_TS$MR)
+browser()
+      A <- matrix(data = vMR_filt, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
+      start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
+      for(gender in c("M","F")){
+        A_cumsum <- matrix(data = 0, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
+        A_cumsum_multivar <- matrix(data = 0, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
+        for(i in c(names(w_EU)[w_EU == 0])){
+          A_cumsum <- A_cumsum + A %^% (which(i == c(names(w_EU)[w_EU == 0])))
+          A_cumsum_multivar <- A_cumsum_multivar + rmvnorm(which(i == c(names(w_EU)[w_EU == 0])), 0, 1) * (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
+          objAG_filt[[gender]]$vK[i] <- vDrift_filt[which(gender == c("M","F"))] * A_cumsum + 
+            vMR_filt[which(gender == c("M","F"))] * objAG_filt[[gender]]$vK[start_jaar] +
+            A_cumsum_multivar
+        }  
+        for(i in c(names(w_NL)[w_NL == 0])){
+          objAG_filt[[gender]]$vKappa[i] <- vDrift_filt[2 + which(gender == c("M","F"))] + 
+          vMR_filt[2 + which(gender == c("M","F"))] * objAG_filt[[gender]]$vK[start_jaar] + 
+          sum(rmvnorm(which(i == c(names(w_NL)[w_NL == 0])), 0, 1))
+        }
+      }
+      # objAG_filt[[gender]]$vK[i] <-    
+      # # Simulate the time series
+      # vY_NL_filt <- objAG_filt[[1]]$vY_NL
+      # vY_EU_filt <- objAG_filt[[1]]$vY_EU
+      # iT_his_filt <- length(vY_EU_filt)		# length of the historical time series
+      # iT_his_diff_filt <- length(vY_EU_filt)-length(vY_NL_filt)+1
+      # mTS_BE_filt <- matrix(data=0, nrow=4, ncol=iT_his_filt + iT_fut, dimnames=list(TS=c("EU-M", "EU-F", "NL-M", "NL-F"), Year=seq(from=vY_EU_filt[1], by=1, length.out=iT_his_filt+iT_fut)))
+      # 
+      # # First populate historical kappas
+      # mTS_BE_filt["EU-M", as.character(vY_EU_filt)] <- tail(objAG_filt[["M"]]$vK, iT_his_filt)
+      # mTS_BE_filt["EU-F", as.character(vY_EU_filt)] <- tail(objAG_filt[["F"]]$vK, iT_his_filt)
+      # mTS_BE_filt["NL-M", as.character(vY_NL_filt)] <- tail(objAG_filt[["M"]]$vKappa, iT_his_filt)
+      # mTS_BE_filt["NL-F", as.character(vY_NL_filt)] <- tail(objAG_filt[["F"]]$vKappa, iT_his_filt)
+      # 
+      # # Now create forecasts, but loop over the years instead of over simulations
+      # for(i in as.integer(names(w_EU)[w_EU == 0])) {
+      #   mTS_BE_filt[ , iT_his_filt] <- vDrift_filt + vMR_filt * mTS_BE_filt[ , iT_his_filt + i - 1] 
+      # }
+    }
     objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
     objAG_est <- objAG_BE_all$objAG
   }
