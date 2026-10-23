@@ -81,6 +81,7 @@
   sCountry <- c("NL")
   
   # dynamic variables 
+  fixed_Sims <- FALSE
   iSims <- 100 # 100          # PUT TO 0 TO USE PREVIOUS SIMULATIONS
   iT_fut <- 231 ## 250
   quantiles <- c(0.50, 0.975, 0.025)  # gewenste kwantielen van levensverwachting
@@ -186,48 +187,49 @@
       mRho_filt  <- obj_filt_TS$Rho
       vDrift_filt <- obj_filt_TS$Drift
       vMR_filt    <- c(1, 1, obj_filt_TS$MR)
-browser()
-      A <- matrix(data = vMR_filt, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
+      A <- diag(vMR_filt)
+      A_cumsum <- matrix(data = 0, nrow = 4, ncol = 4)
+      A_cumsum <- diag(4)
       start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
-      for(gender in c("M","F")){
-        A_cumsum <- matrix(data = 0, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
-        A_cumsum_multivar <- matrix(data = 0, nrow = 4, ncol = 4, dimnames = list(c("EU-M", "EU-F", "NL-M", "NL-F"), c("EU-M", "EU-F", "NL-M", "NL-F")))
-        for(i in c(names(w_EU)[w_EU == 0])){
-          A_cumsum <- A_cumsum + A %^% (which(i == c(names(w_EU)[w_EU == 0])))
-          A_cumsum_multivar <- A_cumsum_multivar + rmvnorm(which(i == c(names(w_EU)[w_EU == 0])), 0, 1) * (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
-          objAG_filt[[gender]]$vK[i] <- vDrift_filt[which(gender == c("M","F"))] * A_cumsum + 
-            vMR_filt[which(gender == c("M","F"))] * objAG_filt[[gender]]$vK[start_jaar] +
-            A_cumsum_multivar
-        }  
-        for(i in c(names(w_NL)[w_NL == 0])){
-          objAG_filt[[gender]]$vKappa[i] <- vDrift_filt[2 + which(gender == c("M","F"))] + 
-          vMR_filt[2 + which(gender == c("M","F"))] * objAG_filt[[gender]]$vK[start_jaar] + 
-          sum(rmvnorm(which(i == c(names(w_NL)[w_NL == 0])), 0, 1))
-        }
+      temp_start <- c(objAG_filt[[1]]$vK[start_jaar], objAG_filt[[2]]$vK[start_jaar], objAG_filt[[1]]$vKappa[start_jaar], objAG_filt[[2]]$vKappa[start_jaar])
+      names(temp_start) <- c("K_tM", "K_tV", "Kappa_tM", "Kappa_tV")
+      for(i in c(names(w_EU)[w_EU == 0])){
+        temp <- drop(t(vDrift_filt %*% A_cumsum) + (A %^% (which(i == c(names(w_EU)[w_EU == 0])))) %*% temp_start)
+        objAG_filt[[1]]$vK[i] <- temp[1]
+        objAG_filt[[2]]$vK[i] <- temp[2]
+        objAG_filt[[1]]$vK_old[i] <- objAG_filt[[1]]$vK[i]
+        objAG_filt[[2]]$vK_old[i] <- objAG_filt[[2]]$vK[i]
+        objAG_filt[[1]]$vKappa[i] <- temp[3]
+        objAG_filt[[2]]$vKappa[i] <- temp[4]
+        A_cumsum <- A_cumsum + (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
       }
-      # objAG_filt[[gender]]$vK[i] <-    
-      # # Simulate the time series
-      # vY_NL_filt <- objAG_filt[[1]]$vY_NL
-      # vY_EU_filt <- objAG_filt[[1]]$vY_EU
-      # iT_his_filt <- length(vY_EU_filt)		# length of the historical time series
-      # iT_his_diff_filt <- length(vY_EU_filt)-length(vY_NL_filt)+1
-      # mTS_BE_filt <- matrix(data=0, nrow=4, ncol=iT_his_filt + iT_fut, dimnames=list(TS=c("EU-M", "EU-F", "NL-M", "NL-F"), Year=seq(from=vY_EU_filt[1], by=1, length.out=iT_his_filt+iT_fut)))
-      # 
-      # # First populate historical kappas
-      # mTS_BE_filt["EU-M", as.character(vY_EU_filt)] <- tail(objAG_filt[["M"]]$vK, iT_his_filt)
-      # mTS_BE_filt["EU-F", as.character(vY_EU_filt)] <- tail(objAG_filt[["F"]]$vK, iT_his_filt)
-      # mTS_BE_filt["NL-M", as.character(vY_NL_filt)] <- tail(objAG_filt[["M"]]$vKappa, iT_his_filt)
-      # mTS_BE_filt["NL-F", as.character(vY_NL_filt)] <- tail(objAG_filt[["F"]]$vKappa, iT_his_filt)
-      # 
-      # # Now create forecasts, but loop over the years instead of over simulations
-      # for(i in as.integer(names(w_EU)[w_EU == 0])) {
-      #   mTS_BE_filt[ , iT_his_filt] <- vDrift_filt + vMR_filt * mTS_BE_filt[ , iT_his_filt + i - 1] 
-      # }
     }
-    objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
-    objAG_est <- objAG_BE_all$objAG
+    objAG_est$M$vK <- objAG_filt$M$vK[sort(names(objAG_filt$M$vK))]
+    objAG_est$F$vK <- objAG_filt$F$vK[sort(names(objAG_filt$F$vK))]
+    objAG_est$M$vK_old <- objAG_filt$M$vK_old[sort(names(objAG_filt$M$vK_old))]
+    objAG_est$F$vK_old <- objAG_filt$F$vK_old[sort(names(objAG_filt$F$vK_old))]
+    objAG_est$M$vKappa <- objAG_filt$M$vKappa[sort(names(objAG_filt$M$vKappa))]
+    objAG_est$F$vKappa <- objAG_filt$F$vKappa[sort(names(objAG_filt$F$vKappa))]
+
+    for( gender in c("M", "F") ) {
+      objAG_est[[gender]]$mMxt_EU <-
+        fnMxtFromPars(alpha=objAG_est[[gender]]$vA, beta=objAG_est[[gender]]$vB, kappa=objAG_est[[gender]]$vK, ages=objAG_est[[gender]]$vX,
+                      years=objAG_est[[gender]]$vY_EU)
+      objAG_est[[gender]]$mMxt_EU_old <- 
+        fnMxtFromPars(alpha=objAG_est[[gender]]$vA, beta=objAG_est[[gender]]$vB, kappa=objAG_est[[gender]]$vK_old, 
+                      ages=objAG_est[[gender]]$vX, years=objAG_est[[gender]]$vY_EU[objAG_est[[gender]]$vY_EU %in% vY_EU])
+      objAG_est[[gender]]$mMxt_NL <- 
+        objAG_est[[gender]]$mMxt_EU[ , as.character(vY_NL)] * 
+        fnMxtFromPars(alpha=objAG_est[[gender]]$vAlpha, beta=objAG_est[[gender]]$vBeta, kappa=objAG_est[[gender]]$vKappa, ages=vX, years=vY_NL)
+      objAG_est[[gender]]$Dxt_EU_hat <- objAG_est[[gender]]$mExt_EU * objAG_est[[gender]]$mMxt_EU_old
+      objAG_est[[gender]]$mDxt_NL_hat <- objAG_est[[gender]]$mExt_NL * objAG_est[[gender]]$mMxt_NL
+      objAG_est[[gender]]$vY_EU <- objAG_est[[gender]]$vY_EU[objAG_est[[gender]]$vY_EU %in% vY_EU]
+      objAG_est[[gender]]$mMxt_EU <- objAG_est[[gender]]$mMxt_EU_old
+    }
   }
-  
+  objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
+  # objAG_est <- objAG_BE_all$objAG
+ 
   ### Change startingpoint projected mortaility and middelen
   if (apply_new_startingpoint==TRUE){
     

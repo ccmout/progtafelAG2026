@@ -126,7 +126,7 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
 		# objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, w_NL, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 	}
-    
+
 	# Define output variables
 	objAG <- list()
 	for( gender in c("M", "F") ) {
@@ -147,7 +147,7 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
 		mMxt_EU = fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=vX, years=vY_EU)
 		mMxt_EU_old = fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa_old, ages=vX, years=vY_EU_old)
 		mMxt_NL = mMxt_EU[ , as.character(vY_NL)] * fnMxtFromPars(alpha=objM1M1_NL[[gender]]$alpha, beta=objM1M1_NL[[gender]]$beta, kappa=objM1M1_NL[[gender]]$kappa, ages=vX, years=vY_NL)
-		mDxt_EU_hat <- mExt_EU * mMxt_EU_old
+    Dxt_EU_hat <- mExt_EU * mMxt_EU_old
 		mDxt_NL_hat <- mExt_NL * mMxt_NL
 
 		objAG[[gender]] <- list(
@@ -168,7 +168,7 @@ fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRes
       mMxt_EU = mMxt_EU, 
 			mMxt_EU_old = mMxt_EU_old, 
 			mMxt_NL = mMxt_NL, 
-			Dxt_EU_hat = mDxt_EU_hat, 
+			Dxt_EU_hat = Dxt_EU_hat, 
 			mDxt_NL_hat = mDxt_NL_hat)
 		}
 
@@ -396,7 +396,7 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  rho[2,3], rho[2,4], rho[3,4] )
   
   ### 
-  set.seed(42)
+  if (fixed_Sims) set.seed(42)
 
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
@@ -789,7 +789,7 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
     # Extrapoleer alpha lineair naar 0
     vAlpha_extrap <- vAlpha
     for (i in x_kannisto) { vAlpha_extrap[i+1] <- vAlpha_extrap[i] - (tail(vAlpha,1) / (kannisto_nages)) }
-    
+
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), (iX_cal+1:iX_kan)] <- ApplyKannisto_mtx(mtx=mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
@@ -826,10 +826,11 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
 }
 
 fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
-  
+
   # Estimate the TS model and extract regression results
-  objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
-  saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
+  # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  # saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
+  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -910,7 +911,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     # Extrapoleer alpha lineair naar 0
     vAlpha_extrap <- vAlpha
     for (i in x_kannisto) { vAlpha_extrap[i+1] <- vAlpha_extrap[i] - (tail(vAlpha,1) / (kannisto_nages)) }
-    
+
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), (iX_cal+1:iX_kan)] <- ApplyKannisto_mtx(mtx=mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
@@ -1133,7 +1134,7 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
 {
   if(is.null(mtx))
     return(NULL)
-  
+
   #extract dimensions of mtxi
   n.ahead <- dim(mtx)[1]
   n.age   <- dim(mtx)[2]
@@ -1143,11 +1144,11 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
   kannisto_obsages         <- tail(ages, kannisto_nobs)
   kannisto_extrapolateages <- tail(ages, 1) + 1:kannisto_nages
   kannisto_mtx            <- matrix(data=0, nrow=n.ahead, ncol=kannisto_nages)
-  
+
   for(t in 1:(n.ahead)) {
       #obtain mx used for extrapolation
       kannisto_mx_obs <- tail(mtx[t,], kannisto_nobs)
-      
+    
       #apply transformation
       kannisto_mx_obs <- log(kannisto_mx_obs/(1-kannisto_mx_obs))
       
