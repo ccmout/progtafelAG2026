@@ -306,29 +306,29 @@
   ### Write pdf mortality fit vs actual and prediction for all ages and both genders
   ###############################################################################
 
-#   pdf(file.path(sOutputFolder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
-#   vG <- c("Males", "Females")
-#   vCols <- c( "blue", "magenta")
-#   vT_plot <- 1983:2030
-#   for(age in 1:length(vX)) {
-#     if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
-#     for(gender in 1:2) {
-#       # Observed mortality
-#       vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[O(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
-#       vT_obs <- as.integer(names(vQ_obs))
-#       # Fitted and projected mortality
-#       vQ_model <- objAG_BE[[gender]][ , as.character(vX[age])]
-#       vT_model <- as.integer(names(vQ_model))
-# 
-#       # Plot results:
-#       plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
-#       grid(); box()
-#       points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
-#       lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
-#       legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
-#     }
-#   }
-#   dev.off(
+  pdf(file.path(sOutputFolder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
+  vG <- c("Males", "Females")
+  vCols <- c( "blue", "magenta")
+  vT_plot <- 1983:2030
+  for(age in 1:length(vX)) {
+    if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
+    for(gender in 1:2) {
+      # Observed mortality
+      vQ_obs <- 1 - exp( - objAG_est[[gender]]$mDxt_NL[O(vX[age]), ] / objAG_est[[gender]]$mExt_NL[as.character(vX[age]), ] )
+      vT_obs <- as.integer(names(vQ_obs))
+      # Fitted and projected mortality
+      vQ_model <- objAG_BE[[gender]][ , as.character(vX[age])]
+      vT_model <- as.integer(names(vQ_model))
+
+      # Plot results:
+      plot(x=NULL, y=NULL, xlim=range(vT_plot), ylim=range(vQ_obs[vT_obs %in% vT_plot], vQ_model[vT_model %in% vT_plot]), xlab=NA, ylab=NA, main=NULL)
+      grid(); box()
+      points(x=vT_obs[vT_obs %in% vT_plot], y=vQ_obs[vT_obs %in% vT_plot], pch=16, col=vCols[gender])
+      lines(x=vT_model[vT_model %in% vT_plot], y=vQ_model[vT_model %in% vT_plot], lty=1, col="black", lwd=1.5)
+      legend("topright", legend=paste0(vG[gender], " aged ", vX[age]), adj=0.1, bg="white")
+    }
+  }
+  dev.off()
 #   # 
 #   # ###############################################################################
 #   # ### Output data - Dxt and Ext per country for all years incl. years not used for estimation purposes
