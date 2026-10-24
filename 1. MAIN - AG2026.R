@@ -86,7 +86,7 @@
   iT_fut <- 231 ## 250
   quantiles <- c(0.50, 0.975, 0.025)  # gewenste kwantielen van levensverwachting
   YoI <- c(2020, 2022)  # gewenste jaren voor levensverwachting o.b.v. leeftijden voor simulatie
-  AoI <- c(1,66) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
+  AoI <- c(1,26,46,66,86) #select ages of interest for calculation of life expetancy = age + 1 for purpose of column. Thus 1 = age 0
   vCountries_LE <- c("NL","EU") # select countries for which life expectancy is calculated; always have NL as first
   
   # runname <- "3. incl startpunt, excl Covid"
@@ -227,6 +227,7 @@
       objAG_est[[gender]]$mMxt_EU <- objAG_est[[gender]]$mMxt_EU_old
     }
   }
+
   objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
   # objAG_est <- objAG_BE_all$objAG
  
@@ -278,14 +279,14 @@
                                                eta_limit)
   }
 
-  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_BE_proj_all.xlsx")))
-  saveRDS(object=objAG_BE_all, file=here(run_folder, paste0(runname, "_BE.rds")))
-  fnWritePars(objAG=objAG_est, sFile=here(run_folder, paste0(runname, "_pars.xlsx")))
-  saveRDS(object=objAG_est, file=here(run_folder, paste0(runname, "_est.rds")))
+  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_filt_BE_proj_all.xlsx")))
+  saveRDS(object=objAG_BE_all, file=here(run_folder, paste0(runname, "_filt_BE.rds")))
+  fnWritePars(objAG=objAG_est, sFile=here(run_folder, paste0(runname, "_filt_pars.xlsx")))
+  saveRDS(object=objAG_est, file=here(run_folder, paste0(runname, "_filt_est.rds")))
 
   # Calculate projected kappa
   Kappa_proj <- Project_kappa(objAG=objAG_est, iT_fut=iT_fut)
-  saveRDS(object=Kappa_proj, file=here(run_folder, paste0(runname, "_kappa.rds")))
+  saveRDS(object=Kappa_proj, file=here(run_folder, paste0(runname, "_filt_kappa.rds")))
 
 
   # # Stochastic simulations
@@ -430,7 +431,7 @@ write_xlsx(list(Male_P = LE_P_male,
                           Male_C = LE_C_male, 
                           Female_P = LE_P_female, 
                           Female_C = LE_C_female), 
-                     file=here(run_folder, paste0(runname, "_LE.xlsx")), rowNames = TRUE)
+                     file=here(run_folder, paste0(runname, "_filt_LE.xlsx")), rowNames = TRUE)
 
 # vG <- c("Males", "Females")
 vCols <- c( "lightblue", "red", "darkblue", "magenta")
@@ -439,7 +440,7 @@ vT_plot <- 1983:2100
 vLabels <- c("Periodic Male", "Periodic Female", "Cohort Male", "Cohort Female")
 function_name <- "function_temp" 
 for(age in AoI) {
-  pdf(file=here(run_folder, paste0("periode_ en cohort_LE_", vX[age], ".pdf")), height=7, width=15)
+  pdf(file=here(run_folder, paste0("filt_periode_ en cohort_LE_", vX[age], ".pdf")), height=7, width=15)
   # #  if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
   for(gender in c("Male", "Female")) {
     for(LE_type in c("Periodic", "Cohort")) {

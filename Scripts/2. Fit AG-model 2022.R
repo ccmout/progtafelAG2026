@@ -418,6 +418,7 @@ fnWritePars <- function(objAG, sFile) {
   iX <- length(objAG[[1]]$vA)
   iY <- length(objAG[[1]]$vY_NL)
   iYEU <- length(objAG[[1]]$vY_EU)
+  # iYEU <- length(objAG[[1]]$vY_EU)
   
   # Age effects
   mAge_effects <- matrix(data=NA, nrow=iX, ncol=4*2)
@@ -430,22 +431,23 @@ fnWritePars <- function(objAG, sFile) {
     mAge_effects[,4 + (gender-1)*4] <- objAG[[gender]]$vBeta
   }
   # write.xlsx(x=mAge_effects, file=sFile, sheetName="Age effects", col.names=TRUE, row.names=TRUE)
-  
+
   # Period effects
-  mPeriod_effects <- matrix(data=NA, nrow=iYEU, ncol=4)
-  rownames(mPeriod_effects) <- objAG[[1]]$vY_EU
+  mPeriod_effects <- matrix(data=NA, nrow=iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), ncol=4)
+  # mPeriod_effects <- matrix(data=NA, nrow=iYEU
+  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU, by=1)
   colnames(mPeriod_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
   for(gender in 1:2) {
     mPeriod_effects[,1 + (gender-1)*2] <- objAG[[gender]]$vK
     mPeriod_effects[(iYEU-iY+1):iYEU,2 + (gender-1)*2] <- objAG[[gender]]$vKappa
   }
   # write.xlsx(x=mPeriod_effects, file=sFile, sheetName="Period effects", col.names=TRUE, row.names=TRUE, append=TRUE)
-  
-  
+
   # Drift, constant mean reversion parameters
   mTS_pars <- matrix(data=NA, nrow=6, ncol=1)
   rownames(mTS_pars) <- c("theta_M", "theta_F","c_M", "c_F", "a_M", "a_F")
-  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
+  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
+  # objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
   
   ### Check if parameters equal the parameters used in calculations.
   # objTS_to_check <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
@@ -482,7 +484,7 @@ fnWritePars <- function(objAG, sFile) {
   list_output <- list(mAge_effects, mPeriod_effects, mTS_pars,mSigma_CSO,mChol)
   names(list_output) <- cbind("Age effects","Period effects","TS pars","Sigma_CSO","Cholesky_CSO")
   
-  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "_TS.rds")))
+  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "filt_TS.rds")))
   openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
 }
@@ -896,7 +898,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     B_lm <- lm(log(tail(vB,kannisto_nobs)) ~ tail(vX,kannisto_nobs))
     for (i in x_kannisto) { vB_extrap[i+1] <- B_lm$coefficients[1] + B_lm$coefficients[2]*i }
     vB_extrap <- exp(vB_extrap)
-	vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
+	  vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
     
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_EU_tx[ , iX_cal + 1:iX_kan] <- ApplyKannisto_mtx(mtx=mMu_EU_tx[ , 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
@@ -918,19 +920,19 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     mMu_NL_tx_diff <- mMu_NL_tx / mMu_EU_tx[(dim(mMu_EU_tx)[1]-dim(mMu_NL_tx)[1]+1):(dim(mMu_EU_tx)[1]),]
     # Bepaal beta door voor de laatste steekproefperiode de geextrapoleerde alpha af te halen van log(Mu) en te delen door kappa
 
-	vBeta_extrap <- vBeta
+	  vBeta_extrap <- vBeta
     
     vBeta_extrap[x_kannisto + 1] <-
       (log(mMu_NL_tx_diff[length(vY_EU), x_kannisto + 1]) -
          vAlpha_extrap[x_kannisto + 1]) /
       mTS_BE[2 + g, length(vY_EU)]
     
-	#vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+	  #vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
 
-	vA_extrap <- signif(vA_extrap,15)
-    vB_extrap <- signif(vB_extrap,15)
-    vAlpha_extrap <- signif(vAlpha_extrap,15)
-    vBeta_extrap <- signif(vBeta_extrap,15)
+	  vA_extrap <- signif(vA_extrap,15)
+      vB_extrap <- signif(vB_extrap,15)
+      vAlpha_extrap <- signif(vAlpha_extrap,15)
+      vBeta_extrap <- signif(vBeta_extrap,15)
 	
     ####################################################################
     # Bepaal de sterfte intensiteiten voor leeftijden 91 t/m 120 o.b.v. de doorgetrokken A, B, alpha en beta (_extrap) voor alle jaren 
@@ -971,9 +973,10 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
 
 # Project Kappa 
 Project_kappa <- function(objAG, iT_fut=20) {
-  
+ 
   # Estimate the TS model and extract regression results
-  objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)
+  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -990,7 +993,7 @@ Project_kappa <- function(objAG, iT_fut=20) {
   mTS_BE["NL-M", as.character(vY_NL)] <- tail(objAG[["M"]]$vKappa, iT_his)
   mTS_BE["NL-F", as.character(vY_NL)] <- tail(objAG[["F"]]$vKappa, iT_his)
   
-  # Now create forecasts, but loop over the years instead of over simualations
+  # Now create forecasts, but loop over the years instead of over simulations
   for(i in 1:iT_fut) {
     mTS_BE[ , iT_his + i] <- vDrift + vMR * mTS_BE[ , iT_his + i - 1] 
   }
@@ -1135,6 +1138,9 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
   if(is.null(mtx))
     return(NULL)
 
+  # om de vele warnings dat log(...) resulteert in NaN te voorkomen
+  mtx[(mtx>= 1) | (mtx <= 0)] <- NA
+
   #extract dimensions of mtxi
   n.ahead <- dim(mtx)[1]
   n.age   <- dim(mtx)[2]
@@ -1153,7 +1159,8 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
       kannisto_mx_obs <- log(kannisto_mx_obs/(1-kannisto_mx_obs))
       
       #apply the regression and obtain phi1 and phi2
-      kannisto_lm <- lm(kannisto_mx_obs ~ kannisto_obsages)
+      kannisto_obsages[is.na(kannisto_mx_obs)] <-  NA
+      kannisto_lm <- lm(kannisto_mx_obs ~ kannisto_obsages, na.action = na.omit)
       kannisto_phi1 <- exp(kannisto_lm$coefficient[1])
       kannisto_phi2 <- kannisto_lm$coefficient[2]
       
