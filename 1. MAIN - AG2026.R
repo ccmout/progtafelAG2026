@@ -91,7 +91,8 @@
   
   # runname <- "3. incl startpunt, excl Covid"
   # run_folder <- here("Runs", "Raymond validatie", runname)
-  run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid")
+  run_folder <- here("Runs", "deelopdracht_1b. excl UK, excl startpunt, excl Covid")
+  # run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid")
   runname <- "EU23NL24_zonderUK"
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
   
@@ -143,10 +144,10 @@
   # create the weight vector, allowing to exclude specific years from the calibration (like the COVID period)
   w_EU <- rep_len(1, length(vY_EU))
   names(w_EU) <- vY_EU
-  w_EU["2020"] <- w_EU["2021"] <- w_EU["2022"] <- 0
+  # w_EU["2020"] <- w_EU["2021"] <- w_EU["2022"] <- 0
   w_NL <- rep_len(1, length(vY_NL))
   names(w_NL) <- vY_NL
-  w_NL["2020"] <- w_NL["2021"] <- w_NL["2022"] <- 0
+  # w_NL["2020"] <- w_NL["2021"] <- w_NL["2022"] <- 0
   
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
@@ -160,7 +161,8 @@
     
   } else {
     # objAG_BE <- fnProjectAG_BE_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
-    if(sum(ifelse(w_EU == 0, 1, 0)) > 0) {
+    if(sum(ifelse(w_EU == 0, 1, 1)) > 0) {
+    # if(sum(ifelse(w_EU == 0, 1, 0)) > 0) {
       objAG_filt <- objAG_est
       for(gender in c("M", "F")){
         objAG_filt[[gender]]$mExt_EU <- objAG_filt[[gender]]$mExt_EU[, w_EU != 0]
@@ -190,20 +192,22 @@
       A <- diag(vMR_filt)
       A_cumsum <- matrix(data = 0, nrow = 4, ncol = 4)
       A_cumsum <- diag(4)
-      start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
-      temp_start <- c(objAG_filt[[1]]$vK[start_jaar], objAG_filt[[2]]$vK[start_jaar], objAG_filt[[1]]$vKappa[start_jaar], objAG_filt[[2]]$vKappa[start_jaar])
-      names(temp_start) <- c("K_tM", "K_tV", "Kappa_tM", "Kappa_tV")
-      for(i in c(names(w_EU)[w_EU == 0])){
-        temp <- drop(t(vDrift_filt %*% A_cumsum) + (A %^% (which(i == c(names(w_EU)[w_EU == 0])))) %*% temp_start)
-        objAG_filt[[1]]$vK[i] <- temp[1]
-        objAG_filt[[2]]$vK[i] <- temp[2]
-        objAG_filt[[1]]$vK_old[i] <- objAG_filt[[1]]$vK[i]
-        objAG_filt[[2]]$vK_old[i] <- objAG_filt[[2]]$vK[i]
-        objAG_filt[[1]]$vKappa[i] <- temp[3]
-        objAG_filt[[2]]$vKappa[i] <- temp[4]
-        A_cumsum <- A_cumsum + (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
+      if(sum(w_EU == 0) > 0){
+        start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
+        temp_start <- c(objAG_filt[[1]]$vK[start_jaar], objAG_filt[[2]]$vK[start_jaar], objAG_filt[[1]]$vKappa[start_jaar], objAG_filt[[2]]$vKappa[start_jaar])
+        names(temp_start) <- c("K_tM", "K_tV", "Kappa_tM", "Kappa_tV")
+        for(i in c(names(w_EU)[w_EU == 0])){
+          temp <- drop(t(vDrift_filt %*% A_cumsum) + (A %^% (which(i == c(names(w_EU)[w_EU == 0])))) %*% temp_start)
+          objAG_filt[[1]]$vK[i] <- temp[1]
+          objAG_filt[[2]]$vK[i] <- temp[2]
+          objAG_filt[[1]]$vK_old[i] <- objAG_filt[[1]]$vK[i]
+          objAG_filt[[2]]$vK_old[i] <- objAG_filt[[2]]$vK[i]
+          objAG_filt[[1]]$vKappa[i] <- temp[3]
+          objAG_filt[[2]]$vKappa[i] <- temp[4]
+          A_cumsum <- A_cumsum + (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
+        }
       }
-    }
+    }  
     objAG_est$M$vK <- objAG_filt$M$vK[sort(names(objAG_filt$M$vK))]
     objAG_est$F$vK <- objAG_filt$F$vK[sort(names(objAG_filt$F$vK))]
     objAG_est$M$vK_old <- objAG_filt$M$vK_old[sort(names(objAG_filt$M$vK_old))]
@@ -304,7 +308,7 @@
   ###############################################################################
   ### Write pdf mortality fit vs actual and prediction for all ages and both genders
   ###############################################################################
-browser()
+
   pdf(file=here(run_folder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
   vG <- c("Males", "Females")
   vCols <- c( "blue", "magenta")
