@@ -302,7 +302,19 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	mRho[2,4] <- mRho[4,2] <- fnInvLogitCorr(vPars[15])
 	mRho[3,4] <- mRho[4,3] <- fnInvLogitCorr(vPars[16])
 	mSigma <- (vSigma %o% vSigma) * mRho
-
+	if(sum(w_EU == 0) > 0) {
+  	A2 <- diag(2)
+  	A2_cumsum <- diag(2)
+  	A4 <- diag(c(1, 1, dA_M, dA_F))
+  	A4_cumsum <- diag(4)
+  	A2_cumsum <- vSigma[1:2, 1:2]
+  	A4_cumsum <- vSigma
+  	for(i in 1:(count(w_EU[w_EU == 0])-1)) {
+  	  A2_cumsum <- A2_cumsum + (A2 %^% i) %*% vSigma %*% t(A2 %^% i)
+  	  A4_cumsum <- A4_cumsum + (A4 %^% i) %*% vSigma %*% t(A4 %^% i)
+  	}
+	}
+browser()
 	# Construct a matrix with all error terms
 	# Note that the matrix has NA values at some places!
 	vY_EU <- objAG[[1]]$vY_EU
@@ -318,7 +330,7 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - dA_M * head(vKappa_M, -1) - dC_M
 	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F
 
-
+  if(fixed_Sims) set.seed(5379)
 	dLogLik <- sum( dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=mSigma[1:2,1:2], log=TRUE)) + 
 				sum( dmvnorm(x=mError[as.character(vY_p2), ], mean=rep(0,4), sigma=mSigma, log=TRUE))
 

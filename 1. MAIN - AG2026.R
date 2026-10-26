@@ -189,7 +189,6 @@
       vDrift_filt <- obj_filt_TS$Drift
       vMR_filt    <- c(1, 1, obj_filt_TS$MR)
       A <- diag(vMR_filt)
-      A_cumsum <- matrix(data = 0, nrow = 4, ncol = 4)
       A_cumsum <- diag(4)
       if(sum(w_EU == 0) > 0){
         start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
