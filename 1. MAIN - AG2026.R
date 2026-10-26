@@ -91,8 +91,7 @@
   
   # runname <- "3. incl startpunt, excl Covid"
   # run_folder <- here("Runs", "Raymond validatie", runname)
-  run_folder <- here("Runs", "deelopdracht_1b. excl UK, excl startpunt, excl Covid")
-  # run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid")
+  run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid")
   runname <- "EU23NL24_zonderUK"
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
   
@@ -144,10 +143,10 @@
   # create the weight vector, allowing to exclude specific years from the calibration (like the COVID period)
   w_EU <- rep_len(1, length(vY_EU))
   names(w_EU) <- vY_EU
-  # w_EU["2020"] <- w_EU["2021"] <- w_EU["2022"] <- 0
+  w_EU["2020"] <- w_EU["2021"] <- w_EU["2022"] <- 0
   w_NL <- rep_len(1, length(vY_NL))
   names(w_NL) <- vY_NL
-  # w_NL["2020"] <- w_NL["2021"] <- w_NL["2022"] <- 0
+  w_NL["2020"] <- w_NL["2021"] <- w_NL["2022"] <- 0
   
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
