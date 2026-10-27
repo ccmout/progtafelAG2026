@@ -302,24 +302,26 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	mRho[2,4] <- mRho[4,2] <- fnInvLogitCorr(vPars[15])
 	mRho[3,4] <- mRho[4,3] <- fnInvLogitCorr(vPars[16])
 	mSigma <- (vSigma %o% vSigma) * mRho
-	if(sum(w_EU == 0) > 0) {
-  	A2 <- diag(2)
-  	A2_cumsum <- diag(2)
-  	A4 <- diag(c(1, 1, dA_M, dA_F))
-  	A4_cumsum <- diag(4)
-  	A2_cumsum <- vSigma[1:2, 1:2]
-  	A4_cumsum <- vSigma
-  	for(i in 1:(count(w_EU[w_EU == 0])-1)) {
-  	  A2_cumsum <- A2_cumsum + (A2 %^% i) %*% vSigma %*% t(A2 %^% i)
-  	  A4_cumsum <- A4_cumsum + (A4 %^% i) %*% vSigma %*% t(A4 %^% i)
+
+  A2 <- diag(2)
+  A2_var <- mSigma[1:2, 1:2]
+  A4 <- diag(c(1, 1, dA_M, dA_F))
+  A4_var <- mSigma[1:4, 1:4]
+  if(sum(w_EU == 0) > 0) {
+  	for(i in 1:(sum(w_EU == 0)-1)) {
+  	  A2_var <- A2_var + (A2 %^% i) %*% mSigma[1:2, 1:2] %*% t(A2 %^% i)
+  	  A4_var <- A4_var + (A4 %^% i) %*% mSigma[1:4, 1:4] %*% t(A4 %^% i)
   	}
 	}
-browser()
+
 	# Construct a matrix with all error terms
 	# Note that the matrix has NA values at some places!
 	vY_EU <- objAG[[1]]$vY_EU
 	vY_NL <- objAG[[1]]$vY_NL
 
+	# DIT IS EEN DIRTY OPLOSSING DIE STRUCTUREEL MOET WORDEN OPGELOST IN (OOK) objAG
+	# vY_EU <- head(vY_EU, -1)
+	
 	vY_diff <- tail(vY_EU, -1)
 	vY_p1 <- setdiff( tail(vY_EU, -1), tail(vY_NL, -1) )
 	vY_p2 <- tail(vY_NL, -1) 
@@ -330,9 +332,28 @@ browser()
 	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - dA_M * head(vKappa_M, -1) - dC_M
 	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F
 
+  temp <- (c(vY_p1, vY_p2) == max(as.integer(names(w_EU[w_EU == 0]))) + 1)
+  bereken_loglik_rij <- function(i) {
+    if (temp[i]) {
+      sigma_2 <- A2_var
+      sigma_4 <- A4_var
+    } else{
+      sigma_2 <- mSigma[1:2, 1:2]
+      sigma_4 <- mSigma
+    }
+    if (i <= length(vY_p1)) {
+      logLik_rij_p1 <- dmvnorm(x=mError[as.character(vY_p1[i]), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)
+      return(logLik_rij_p1)
+    } else {
+      logLik_rij_p2 <- dmvnorm(x=mError[as.character(vY_p2[i - length(vY_p1)]),], mean=rep(0,4), sigma=sigma_4, log=TRUE)
+      return(logLik_rij_p2)
+    }
+  }
+
   if(fixed_Sims) set.seed(5379)
-	dLogLik <- sum( dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=mSigma[1:2,1:2], log=TRUE)) + 
-				sum( dmvnorm(x=mError[as.character(vY_p2), ], mean=rep(0,4), sigma=mSigma, log=TRUE))
+  dLogLik <- sum(sapply(1:length(vY_p1)+length(vY_p2), bereken_loglik_rij))
+#   dLogLik <- sum(dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)) +
+# 	  sum(dmvnorm(x=mError[as.character(vY_p2),], mean=rep(0,4), sigma=sigma_4, log=TRUE))
 
 	# Remember to return minus the loglikelihood: 
 	# we want to maximize, but optim minimizes

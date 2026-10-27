@@ -140,7 +140,8 @@
   #########################################
   ### Calibration of the AG-model
   #########################################
-  # create the weight vector, allowing to exclude specific years from the calibration (like the COVID period)
+  # create the weight vector, allowing to exclude years from the calibration (like the COVID period)
+  # PLEASE NOTE: ONLY ONE INTERVAL OF ONE OR MORE YEARS IS POSSIBLE FOR EXCLUDING YEARS
   w_EU <- rep_len(1, length(vY_EU))
   names(w_EU) <- vY_EU
   w_EU["2020"] <- w_EU["2021"] <- w_EU["2022"] <- 0
