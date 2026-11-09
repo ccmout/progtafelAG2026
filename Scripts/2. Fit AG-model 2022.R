@@ -56,10 +56,10 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 			  k0 <- k1 - 1 # Starting condition
 			  while(abs(k1-k0) > 0.1) {  
 				  k0 <- k1; 
-				  # k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
-				  # sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
-				  k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
-				    sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]*w_C[i]) )
+				  k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) /
+				  sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) )
+				  # k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
+				  #   sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]*w_C[i]) )
 			  }
 			  vKappa[i] <- k1
 			}, 
@@ -76,13 +76,13 @@ fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
 		vBeta	<- vBeta/const.beta		                      # Ensures that betas  sum to 1
 		vAlpha	<- vAlpha+vBeta*const.beta*const.kappa    # Alpha needs to be adjusted to compensate
 
-		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ]*w_C)) - log(sum(mExt[j, ]*exp(vBeta[j]*w_C*vKappa)))
+		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ]*w_C)) - log(sum(mExt[j, ]*w_C*exp(vBeta[j]*vKappa)))
 		# for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
-		for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i] * w_C[i])
+		for(i in 1:iYears) mMxt[, i] <-  w_C[i] * exp(vAlpha + vBeta * vKappa[i])
 		# for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
 
 		# dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
-		dL1 <- sum( t(t(mDxt)*w_C)*log(mExt*mMxt) - t(t(mExt)*w_C)*mMxt - lgamma(t(t(mDxt)*w_C)+1) )
+		dL1 <- sum( t(t(mDxt)*w_C)*log(mExt*mMxt) - t(t(mExt)*w_C)*mMxt - t(t(lgamma(mDxt+1))*w_C), na.rm = TRUE )
 	}		 # end while loop
 	dimnames(mMxt) <- list(Age=vX, Year=vY)
 	list(alpha=as.numeric(vAlpha), beta=vBeta, kappa=vKappa, ages=vX, years=vY, mxt=mMxt) #output 
@@ -274,7 +274,7 @@ fnInvLogitCorr <- function(dInv) {
 
 # Define the log likelihood function of the original AG2020 TS specification
 # This function will later be used to optimize, so we use transformations of original parameters
-fnLL_TS_AG2020_trans <- function(objAG, vPars) {
+fnLL_TS_AG2020_trans <- function(vPars, objAG) {
 
 	vK_M <- objAG[["M"]]$vK
 	vK_F <- objAG[["F"]]$vK
@@ -303,21 +303,30 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	mRho[3,4] <- mRho[4,3] <- fnInvLogitCorr(vPars[16])
 	mSigma <- (vSigma %o% vSigma) * mRho
 
-  A2 <- diag(2)
-  A2_var <- mSigma[1:2, 1:2]
-  A4 <- diag(c(1, 1, dA_M, dA_F))
-  A4_var <- mSigma[1:4, 1:4]
-  if(sum(w_EU == 0) > 0) {
-  	for(i in 1:(sum(w_EU == 0)-1)) {
-  	  A2_var <- A2_var + (A2 %^% i) %*% mSigma[1:2, 1:2] %*% t(A2 %^% i)
-  	  A4_var <- A4_var + (A4 %^% i) %*% mSigma[1:4, 1:4] %*% t(A4 %^% i)
-  	}
-	}
-
 	# Construct a matrix with all error terms
 	# Note that the matrix has NA values at some places!
 	vY_EU <- objAG[[1]]$vY_EU
 	vY_NL <- objAG[[1]]$vY_NL
+
+	A2 <- diag(2)
+	A2_var <- mSigma[1:2, 1:2]
+	A4 <- diag(c(1, 1, dA_M, dA_F))
+	A4_var <- mSigma[1:4, 1:4]
+	if(sum(w_EU == 0) > 0) {
+	  for(i in 1:(sum(w_EU == 0))) {
+	    A2_var <- A2_var + (A2 %^% i) %*% mSigma[1:2, 1:2] %*% t(A2 %^% i)
+	    A4_var <- A4_var + (A4 %^% i) %*% mSigma[1:4, 1:4] %*% t(A4 %^% i)
+	  }
+	}
+
+	dA_cum_M <- dA_cum_F <- rep(1, length(diff(vY_NL)))
+	for(i in 1:length(diff(vY_NL))) {
+	  if(diff(vY_NL)[i] > 1)
+      for(j in 1:diff(vY_NL)[i]) {
+  	    dA_cum_M[i] <- dA_cum_M[i] + dA_M^j
+  	    dA_cum_F[i] <- dA_cum_F[i] + dA_F^j
+  	  }
+	}
 
 	# DIT IS EEN DIRTY OPLOSSING DIE STRUCTUREEL MOET WORDEN OPGELOST IN (OOK) objAG
 	# vY_EU <- head(vY_EU, -1)
@@ -327,10 +336,10 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	vY_p2 <- tail(vY_NL, -1) 
 
 	mError <- matrix(data=NA, nrow=length(vY_EU)-1, ncol=4, dimnames=list(Year=tail(vY_EU,-1), TS=c("EU-M", "EU-F", "NL-M", "NL-F")))
-	mError[as.character(vY_diff), "EU-M"] <- diff(vK_M) - dTheta_M
-	mError[as.character(vY_diff), "EU-F"] <- diff(vK_F) - dTheta_F
-	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - dA_M * head(vKappa_M, -1) - dC_M
-	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F
+	mError[as.character(vY_diff), "EU-M"] <- diff(vK_M) - diff(vY_EU) * dTheta_M
+	mError[as.character(vY_diff), "EU-F"] <- diff(vK_F) - diff(vY_EU) * dTheta_F
+	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - (dA_M^diff(vY_NL)) * head(vKappa_M, -1) - dC_M * dA_cum_M
+	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F * dA_cum_F
 
   temp <- (c(vY_p1, vY_p2) == max(as.integer(names(w_EU[w_EU == 0]))) + 1)
   bereken_loglik_rij <- function(i) {
@@ -351,7 +360,7 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
   }
 
   if(fixed_Sims) set.seed(5379)
-  dLogLik <- sum(sapply(1:length(vY_p1)+length(vY_p2), bereken_loglik_rij))
+  dLogLik <- sum(sapply(1:(length(vY_p1)+length(vY_p2)), bereken_loglik_rij))
 #   dLogLik <- sum(dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)) +
 # 	  sum(dmvnorm(x=mError[as.character(vY_p2),], mean=rep(0,4), sigma=sigma_4, log=TRUE))
 

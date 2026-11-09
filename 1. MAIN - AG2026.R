@@ -91,10 +91,11 @@
   
   # runname <- "3. incl startpunt, excl Covid"
   # run_folder <- here("Runs", "Raymond validatie", runname)
-  run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid")
+  timestamp <- date()
+  run_folder <- here("Runs", "deelopdracht_1c. excl UK, excl startpunt, excl Covid", timestamp)
   runname <- "EU23NL24_zonderUK"
   if(!dir.exists(run_folder)) dir.create(run_folder, recursive=TRUE)
-  
+
   # Kannisto
   kannisto <- FALSE # TRUE, sinds AG2022 moet deze op FALSE staan
   
