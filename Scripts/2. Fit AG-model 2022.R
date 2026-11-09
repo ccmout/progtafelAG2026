@@ -359,7 +359,6 @@ fnLL_TS_AG2020_trans <- function(vPars, objAG) {
     }
   }
 
-  if(fixed_Sims) set.seed(5379)
   dLogLik <- sum(sapply(1:(length(vY_p1)+length(vY_p2)), bereken_loglik_rij))
 #   dLogLik <- sum(dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)) +
 # 	  sum(dmvnorm(x=mError[as.character(vY_p2),], mean=rep(0,4), sigma=sigma_4, log=TRUE))
@@ -438,8 +437,6 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  rho[2,3], rho[2,4], rho[3,4] )
   
   ### 
-  if (fixed_Sims) set.seed(42)
-
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
@@ -477,7 +474,7 @@ fnWritePars <- function(objAG, sFile) {
   # Period effects
   mPeriod_effects <- matrix(data=NA, nrow=iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), ncol=4)
   # mPeriod_effects <- matrix(data=NA, nrow=iYEU
-  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU, by=1)
+  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), by=1)
   colnames(mPeriod_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
   for(gender in 1:2) {
     mPeriod_effects[,1 + (gender-1)*2] <- objAG[[gender]]$vK
