@@ -149,7 +149,8 @@
   w_NL <- rep_len(1, length(vY_NL))
   names(w_NL) <- vY_NL
   w_NL["2020"] <- w_NL["2021"] <- w_NL["2022"] <- 0
-  
+  if(sum(w_EU == 0, w_NL == 0)) runname <- paste0(runname, "_filt")
+
   objAG_est <- fnFitAG2020(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2)
   #saveRDS(object=objAG_TS_est, file=here(run_folder, paste(runname, "_TS_est.rds", sep="")))
 
@@ -161,53 +162,50 @@
     objAG_BE_all <- fnProjectAG_BE_all_kannisto(objAG=objAG_est, iT_fut=iT_fut)
     
   } else {
-    # objAG_BE <- fnProjectAG_BE_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
-    if(sum(ifelse(w_EU == 0, 1, 1)) > 0) {
-    # if(sum(ifelse(w_EU == 0, 1, 0)) > 0) {
-      objAG_filt <- objAG_est
-      for(gender in c("M", "F")){
-        objAG_filt[[gender]]$mExt_EU <- objAG_filt[[gender]]$mExt_EU[, w_EU != 0]
-        objAG_filt[[gender]]$mDxt_EU <- objAG_filt[[gender]]$mDxt_EU[, w_EU != 0]
-        objAG_filt[[gender]]$vK <- objAG_filt[[gender]]$vK[w_EU != 0]
-        objAG_filt[[gender]]$vK_old <- objAG_filt[[gender]]$vK_old[w_EU != 0]
-        objAG_filt[[gender]]$mMxt_EU <- objAG_filt[[gender]]$mMxt_EU[, w_EU != 0]
-        objAG_filt[[gender]]$mMxt_EU_old <- objAG_filt[[gender]]$mMxt_EU_old[, w_EU != 0]
-        objAG_filt[[gender]]$Dxt_EU_hat <- objAG_filt[[gender]]$Dxt_EU_hat[, w_EU != 0]
-        objAG_filt[[gender]]$vY_EU <- objAG_filt[[gender]]$vY_EU[w_EU != 0]
-        
-        objAG_filt[[gender]]$mExt_NL <- objAG_filt[[gender]]$mExt_NL[, w_NL != 0]
-        objAG_filt[[gender]]$mDxt_NL <- objAG_filt[[gender]]$mDxt_NL[, w_NL != 0]
-        objAG_filt[[gender]]$vKappa <- objAG_filt[[gender]]$vKappa[w_NL != 0]
-        objAG_filt[[gender]]$mMxt_NL <- objAG_filt[[gender]]$mMxt_NL[, w_NL != 0]
-        objAG_filt[[gender]]$mDxt_NL_hat <- objAG_filt[[gender]]$mDxt_NL_hat[, w_NL != 0]
-        objAG_filt[[gender]]$vY_NL <- objAG_filt[[gender]]$vY_NL[w_NL != 0]
-      }
+    objAG_filt <- objAG_est
+    for(gender in c("M", "F")){
+      objAG_filt[[gender]]$mExt_EU <- objAG_filt[[gender]]$mExt_EU[, w_EU != 0]
+      objAG_filt[[gender]]$mDxt_EU <- objAG_filt[[gender]]$mDxt_EU[, w_EU != 0]
+      objAG_filt[[gender]]$vK <- objAG_filt[[gender]]$vK[w_EU != 0]
+      objAG_filt[[gender]]$vK_old <- objAG_filt[[gender]]$vK_old[w_EU != 0]
+      objAG_filt[[gender]]$mMxt_EU <- objAG_filt[[gender]]$mMxt_EU[, w_EU != 0]
+      objAG_filt[[gender]]$mMxt_EU_old <- objAG_filt[[gender]]$mMxt_EU_old[, w_EU != 0]
+      objAG_filt[[gender]]$Dxt_EU_hat <- objAG_filt[[gender]]$Dxt_EU_hat[, w_EU != 0]
+      objAG_filt[[gender]]$vY_EU <- objAG_filt[[gender]]$vY_EU[w_EU != 0]
+      
+      objAG_filt[[gender]]$mExt_NL <- objAG_filt[[gender]]$mExt_NL[, w_NL != 0]
+      objAG_filt[[gender]]$mDxt_NL <- objAG_filt[[gender]]$mDxt_NL[, w_NL != 0]
+      objAG_filt[[gender]]$vKappa <- objAG_filt[[gender]]$vKappa[w_NL != 0]
+      objAG_filt[[gender]]$mMxt_NL <- objAG_filt[[gender]]$mMxt_NL[, w_NL != 0]
+      objAG_filt[[gender]]$mDxt_NL_hat <- objAG_filt[[gender]]$mDxt_NL_hat[, w_NL != 0]
+      objAG_filt[[gender]]$vY_NL <- objAG_filt[[gender]]$vY_NL[w_NL != 0]
+    }
 
-      # Estimate the TS model and extract regression results
-      obj_filt_TS <- fnEstimateTS_AG2020(objAG=objAG_filt, dRelTol=1E-18)  
-      saveRDS(obj_filt_TS, here(run_folder, paste0(runname, "_filt_TS.rds")))
-      mCov_filt  <- obj_filt_TS$Sigma
-      mRho_filt  <- obj_filt_TS$Rho
-      vDrift_filt <- obj_filt_TS$Drift
-      vMR_filt    <- c(1, 1, obj_filt_TS$MR)
-      A <- diag(vMR_filt)
-      A_cumsum <- diag(4)
-      if(sum(w_EU == 0) > 0){
-        start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
-        temp_start <- c(objAG_filt[[1]]$vK[start_jaar], objAG_filt[[2]]$vK[start_jaar], objAG_filt[[1]]$vKappa[start_jaar], objAG_filt[[2]]$vKappa[start_jaar])
-        names(temp_start) <- c("K_tM", "K_tV", "Kappa_tM", "Kappa_tV")
-        for(i in c(names(w_EU)[w_EU == 0])){
-          temp <- drop(t(vDrift_filt %*% A_cumsum) + (A %^% (which(i == c(names(w_EU)[w_EU == 0])))) %*% temp_start)
-          objAG_filt[[1]]$vK[i] <- temp[1]
-          objAG_filt[[2]]$vK[i] <- temp[2]
-          objAG_filt[[1]]$vK_old[i] <- objAG_filt[[1]]$vK[i]
-          objAG_filt[[2]]$vK_old[i] <- objAG_filt[[2]]$vK[i]
-          objAG_filt[[1]]$vKappa[i] <- temp[3]
-          objAG_filt[[2]]$vKappa[i] <- temp[4]
-          A_cumsum <- A_cumsum + (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
-        }
+    # Estimate the TS model and extract regression results
+    obj_filt_TS <- fnEstimateTS_AG2020(objAG=objAG_filt, dRelTol=1E-18)
+    saveRDS(obj_filt_TS, here(run_folder, paste0(runname, "_TS.rds")))
+
+    mCov_filt  <- obj_filt_TS$Sigma
+    mRho_filt  <- obj_filt_TS$Rho
+    vDrift_filt <- obj_filt_TS$Drift
+    vMR_filt    <- c(1, 1, obj_filt_TS$MR)
+    A <- diag(vMR_filt)
+    A_cumsum <- diag(4)
+    if(sum(w_EU == 0) > 0){
+      start_jaar <- as.character(min(as.integer(names(w_EU)[w_EU == 0]))-1)
+      temp_start <- c(objAG_filt[[1]]$vK[start_jaar], objAG_filt[[2]]$vK[start_jaar], objAG_filt[[1]]$vKappa[start_jaar], objAG_filt[[2]]$vKappa[start_jaar])
+      names(temp_start) <- c("K_tM", "K_tV", "Kappa_tM", "Kappa_tV")
+      for(i in c(names(w_EU)[w_EU == 0])){
+        temp <- drop(t(vDrift_filt %*% A_cumsum) + (A %^% (which(i == c(names(w_EU)[w_EU == 0])))) %*% temp_start)
+        objAG_filt[[1]]$vK[i] <- temp[1]
+        objAG_filt[[2]]$vK[i] <- temp[2]
+        objAG_filt[[1]]$vK_old[i] <- objAG_filt[[1]]$vK[i]
+        objAG_filt[[2]]$vK_old[i] <- objAG_filt[[2]]$vK[i]
+        objAG_filt[[1]]$vKappa[i] <- temp[3]
+        objAG_filt[[2]]$vKappa[i] <- temp[4]
+        A_cumsum <- A_cumsum + (A %^% (which(i == c(names(w_EU)[w_EU == 0]))))
       }
-    }  
+    }
     objAG_est$M$vK <- objAG_filt$M$vK[sort(names(objAG_filt$M$vK))]
     objAG_est$F$vK <- objAG_filt$F$vK[sort(names(objAG_filt$F$vK))]
     objAG_est$M$vK_old <- objAG_filt$M$vK_old[sort(names(objAG_filt$M$vK_old))]
@@ -234,7 +232,7 @@
 
   objAG_BE_all <- fnProjectAG_BE_all_alternatiefB_HellingEnConstante(objAG=objAG_est, iT_fut=iT_fut)
   # objAG_est <- objAG_BE_all$objAG
- 
+
   ### Change startingpoint projected mortaility and middelen
   if (apply_new_startingpoint==TRUE){
     
@@ -283,14 +281,14 @@
                                                eta_limit)
   }
 
-  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_filt_BE_proj_all.xlsx")))
-  saveRDS(object=objAG_BE_all, file=here(run_folder, paste0(runname, "_filt_BE.rds")))
-  fnWritePars(objAG=objAG_est, sFile=here(run_folder, paste0(runname, "_filt_pars.xlsx")))
-  saveRDS(object=objAG_est, file=here(run_folder, paste0(runname, "_filt_est.rds")))
+  fnWriteBE_all(objAG_BE=objAG_BE_all, sFile=here(run_folder, paste0(runname, "_BE_proj_all.xlsx")))
+  saveRDS(object=objAG_BE_all, file=here(run_folder, paste0(runname, "_BE_proj_all.rds")))
+  fnWritePars(objAG=objAG_BE_all$objAG, sFile=here(run_folder, paste0(runname, "_pars.xlsx")))
+  saveRDS(object=objAG_est, file=here(run_folder, paste0(runname, "_pars.rds")))
 
   # Calculate projected kappa
-  Kappa_proj <- Project_kappa(objAG=objAG_est, iT_fut=iT_fut)
-  saveRDS(object=Kappa_proj, file=here(run_folder, paste0(runname, "_filt_kappa.rds")))
+  # Kappa_proj <- Project_kappa(objAG=objAG_est, iT_fut=iT_fut)
+  # saveRDS(object=Kappa_proj, file=here(run_folder, paste0(runname, "_kappa.rds")))
 
   # # Stochastic simulations
   # if (iSims == 0){
@@ -305,11 +303,12 @@
   # }
   # 
   # 
-  ###############################################################################
-  ### Write pdf mortality fit vs actual and prediction for all ages and both genders
-  ###############################################################################
 
-  pdf(file=here(run_folder, "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
+###############################################################################
+### Write pdf mortality fit vs actual and prediction for all ages and both genders
+###############################################################################
+
+  pdf(file=paste0(here(run_folder, runname), "Mortality_fit_vs_prediction.pdf"), height=7, width=15)
   vG <- c("Males", "Females")
   vCols <- c( "blue", "magenta")
   vT_plot <- 1983:2030
@@ -425,11 +424,12 @@
 #   # 
 #   # openxlsx::write.xlsx(x=lOutput_LE_P_hist, file=paste0(sOutputFolder, sTableName, "_Period_Life_expectancy_hist.xlsx"), rowNames=TRUE, colNames=TRUE)
 #   # 
-#   ###############################################################################
-#   ### Calculate Life Expectancy - NL & EU
-#   ###############################################################################
-# 
-#   #Calculate period and cohort LE for future years - only for EU and NL (based on parameters AG table )
+
+###############################################################################
+### Calculate Life Expectancy - NL & EU
+###############################################################################
+
+#Calculate period and cohort LE for future years - only for EU and NL (based on parameters AG table )
 ages_LE <- 0:99
 
 start_year <- vY_NL[1] #first year 
@@ -459,16 +459,17 @@ write_xlsx(list(Male_P = LE_P_male,
                           Male_C = LE_C_male, 
                           Female_P = LE_P_female, 
                           Female_C = LE_C_female), 
-                     file=here(run_folder, paste0(runname, "_filt_LE.xlsx")), rowNames = TRUE)
+                     file=here(run_folder, paste0(runname, "_LE.xlsx")), rowNames = TRUE)
 
-# vG <- c("Males", "Females")
+###############################################################################
+### Write pdf Life Expectancy - NL & EU
+###############################################################################
 vCols <- c( "lightblue", "red", "darkblue", "magenta")
 vLty <- c(1,1,2,2)
 vT_plot <- 1983:2100
 vLabels <- c("Periodic Male", "Periodic Female", "Cohort Male", "Cohort Female")
-function_name <- "function_temp" 
 for(age in AoI) {
-  pdf(file=here(run_folder, paste0("filt_periode_ en cohort_LE_", vX[age], ".pdf")), height=7, width=15)
+  pdf(file=here(run_folder, paste0(runname, "_periode_ en cohort_LE_", vX[age], ".pdf")), height=7, width=15)
   # #  if(age%%4==1) par(mfcol=c(2,4), las=1, mar=c(3,4,3,2))
   for(gender in c("Male", "Female")) {
     for(LE_type in c("Periodic", "Cohort")) {

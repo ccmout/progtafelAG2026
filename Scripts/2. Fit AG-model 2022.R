@@ -274,7 +274,7 @@ fnInvLogitCorr <- function(dInv) {
 
 # Define the log likelihood function of the original AG2020 TS specification
 # This function will later be used to optimize, so we use transformations of original parameters
-fnLL_TS_AG2020_trans <- function(vPars, objAG) {
+fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 
 	vK_M <- objAG[["M"]]$vK
 	vK_F <- objAG[["F"]]$vK
@@ -339,7 +339,7 @@ fnLL_TS_AG2020_trans <- function(vPars, objAG) {
 	mError[as.character(vY_diff), "EU-M"] <- diff(vK_M) - diff(vY_EU) * dTheta_M
 	mError[as.character(vY_diff), "EU-F"] <- diff(vK_F) - diff(vY_EU) * dTheta_F
 	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - (dA_M^diff(vY_NL)) * head(vKappa_M, -1) - dC_M * dA_cum_M
-	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F * dA_cum_F
+	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - (dA_F^diff(vY_NL)) * head(vKappa_F, -1) - dC_F * dA_cum_F
 
   temp <- (c(vY_p1, vY_p2) == max(as.integer(names(w_EU[w_EU == 0]))) + 1)
   bereken_loglik_rij <- function(i) {
@@ -436,12 +436,14 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  rho[1,2], rho[1,3], rho[1,4], 
 	#  rho[2,3], rho[2,4], rho[3,4] )
   
-  ### 
+  ###
+  set.seed(42)
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
 				fnLogitCorr(0.45), fnLogitCorr(0.55), fnLogitCorr(0.65))
-	objOptim <- optim(par=vStartPar, fn=fnLL_TS_AG2020_trans, objAG=objAG, method="BFGS", 
+
+		objOptim <- optim(par=vStartPar, fn=fnLL_TS_AG2020_trans, objAG=objAG, method="BFGS", 
 				control=list(reltol=dRelTol, fnscale=100, maxit=1E5)); 
 	if(objOptim$convergence!=0) {
 		stop("Optimization did not converge succesfully!"); flush.console()
@@ -474,26 +476,45 @@ fnWritePars <- function(objAG, sFile) {
   # Period effects
   mPeriod_effects <- matrix(data=NA, nrow=iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), ncol=4)
   # mPeriod_effects <- matrix(data=NA, nrow=iYEU
-  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), by=1)
+  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))-1, by=1)
   colnames(mPeriod_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
   for(gender in 1:2) {
     mPeriod_effects[,1 + (gender-1)*2] <- objAG[[gender]]$vK
-    mPeriod_effects[(iYEU-iY+1):iYEU,2 + (gender-1)*2] <- objAG[[gender]]$vKappa
+    mPeriod_effects[(iYEU-iY+1+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))):(iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))),2 + (gender-1)*2] <- objAG[[gender]]$vKappa
   }
   # write.xlsx(x=mPeriod_effects, file=sFile, sheetName="Period effects", col.names=TRUE, row.names=TRUE, append=TRUE)
 
   # Drift, constant mean reversion parameters
   mTS_pars <- matrix(data=NA, nrow=6, ncol=1)
   rownames(mTS_pars) <- c("theta_M", "theta_F","c_M", "c_F", "a_M", "a_F")
-  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+
   # objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
-  
+
   ### Check if parameters equal the parameters used in calculations.
   # objTS_to_check <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
   # print(identical(objTS, objTS_to_check))
   mTS_pars[1:4,] <- objTS$Drift
   mTS_pars[5:6,] <- objTS$MR
   # write.xlsx(x=mTS_pars, file=sFile, sheetName="TS pars", col.names=FALSE, row.names=TRUE, append=TRUE)
+  
+
+  # Projected Period effects
+  mProj_Period_effects <- matrix(data=NA, nrow=iT_fut, ncol=4)
+  # mPeriod_effects <- matrix(data=NA, nrow=iYEU
+  rownames(mProj_Period_effects) <- seq(from=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 
+                                        to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))+iT_fut-1, by=1)
+  colnames(mProj_Period_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
+  for(gender in 1:2) {
+    mProj_Period_effects[1, 1 + (gender-1)*2] <- mTS_pars[1+(gender-1)] + mPeriod_effects[iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 1 + (gender-1)*2]
+    mProj_Period_effects[1, 2 + (gender-1)*2] <- mTS_pars[3+(gender-1)] + mTS_pars[5+(gender-1)] * mPeriod_effects[iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 2 + (gender-1)*2]
+    for(i in 2:nrow(mProj_Period_effects)) {
+      mProj_Period_effects[i, 1 + (gender-1)*2] <- mTS_pars[1+(gender-1)] + mProj_Period_effects[i-1, 1 + (gender-1)*2]
+      mProj_Period_effects[i, 2 + (gender-1)*2] <- mTS_pars[3+(gender-1)] + mTS_pars[5+(gender-1)] * mProj_Period_effects[i-1, 2 + (gender-1)*2]
+    }
+  }
+  mPeriod_effects <- rbind(mPeriod_effects, mProj_Period_effects)
+  # write.xlsx(x=mPeriod_effects, file=sFile, sheetName="Period effects", col.names=TRUE, row.names=TRUE, append=TRUE)
   
   # Covariance matrix
   mSigma <- objTS$Sigma
@@ -523,7 +544,7 @@ fnWritePars <- function(objAG, sFile) {
   list_output <- list(mAge_effects, mPeriod_effects, mTS_pars,mSigma_CSO,mChol)
   names(list_output) <- cbind("Age effects","Period effects","TS pars","Sigma_CSO","Cholesky_CSO")
   
-  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "filt_TS.rds")))
+  saveRDS(object=objTS, file=here(run_folder, paste0(runname, "_TS.rds")))
   openxlsx::write.xlsx(x=list_output, file=sFile, rowNames=TRUE, colNames=TRUE)
   
 }
@@ -871,7 +892,8 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
   # Estimate the TS model and extract regression results
   # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
   # saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
-  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -1015,7 +1037,7 @@ Project_kappa <- function(objAG, iT_fut=20) {
  
   # Estimate the TS model and extract regression results
   # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)
-  objTS <- readRDS(here(run_folder, paste0(runname, "_filt_TS.rds")))
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
