@@ -341,7 +341,7 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - (dA_M^diff(vY_NL)) * head(vKappa_M, -1) - dC_M * dA_cum_M
 	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - (dA_F^diff(vY_NL)) * head(vKappa_F, -1) - dC_F * dA_cum_F
 
-  temp <- (c(vY_p1, vY_p2) == max(as.integer(names(w_EU[w_EU == 0]))) + 1)
+  temp <- (c(vY_p1, vY_p2) == (if(sum(w_EU==0)==0) -99 else max(as.integer(names(w_EU[w_EU==0]))) + 1))
   bereken_loglik_rij <- function(i) {
     if (temp[i]) {
       sigma_2 <- A2_var
