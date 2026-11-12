@@ -7,17 +7,18 @@ set.seed(42)
 
 # function to create forces of mortality from a, b, k
 fnMxtFromPars <- function(alpha, beta, kappa, ages, years) {
-	mxt <- exp( alpha %o% rep(1, length(kappa)) + beta %o% kappa)
+  mxt <- exp( alpha %o% rep(1, length(kappa)) + beta %o% kappa)
 	dimnames(mxt) <- list(Age=ages, Year=years)
+	# mxt[,kappa == 0] <- 999
 	return(mxt)
 }
 
 # A = Fit Lee Carter Process
-fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
-
+# fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
+fnFitLC <- function(mDxt, mExt, w_C, vX, vY, dRelTol=1E-18, iStep=2) {
+    
 	# iStep=1 : kappa[t1] = 0
 	# iStep=2 : sum(kappa[t]) = 0
-	
 	mMxt <- mDxt/mExt		# matrix of (raw) central death rates
 	iAges <- length(vX)	# number of ages
 	iYears <- length(vY)	# number of years
@@ -29,7 +30,6 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 
 	# Initialise iteration of maximum likelihood
 	dL0 <- -1000000;  dL1 <- -999999;  iteration <- 0
-
 	# We continue to iterate if the improvement in log-likelihood exceeds 10^(-18)
 	while( abs(dL1-dL0) > dRelTol) {
 
@@ -40,37 +40,49 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 			b1 <- vBeta[j];  
 			b0 <- b1 - 1 # Starting condition
 			while(abs(b1-b0) > 0.1) {
-				b0 <- b1;    
-				b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa * mExt[j, ]) ) - sum(mDxt[j, ]*vKappa)) / 
-				sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
+				b0 <- b1;  
+				# b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa * mExt[j, ]) ) - sum(mDxt[j, ]*vKappa)) / 
+				# sum( (exp(vAlpha[j] + b0 * vKappa) * vKappa^2 * mExt[j, ]) ) 
+				b1 <- b0 - (sum( (exp(vAlpha[j] + b0 * vKappa) * (vKappa*w_C) * mExt[j, ]) ) - sum(mDxt[j, ]*(vKappa*w_C))) / 
+				  sum( (exp(vAlpha[j] + b0 * vKappa) * (vKappa^2) * w_C * mExt[j, ]) ) 
 			}
 			vBeta[j] <- b1
 		}
 
 		# Stage 2 optimise over vKappa(t)
 		for (i in 1:iYears) {
-			k1 <- vKappa[i];  
-			k0 <- k1 - 1 # Starting condition
-			while(abs(k1-k0) > 0.1) {  
-				k0 <- k1;    
-				k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) / 
-				sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) ) 
-			}
-			vKappa[i] <- k1
+			ifelse(w_C[i] > 0, {
+		    k1 <- vKappa[i];  
+			  k0 <- k1 - 1 # Starting condition
+			  while(abs(k1-k0) > 0.1) {  
+				  k0 <- k1; 
+				  k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i])) - sum(mDxt[, i] * vBeta)) /
+				  sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]) )
+				  # k1 <- k0 - (sum( (exp(vAlpha + vBeta * k0) * vBeta * mExt[, i]*w_C[i])) - sum(mDxt[, i]*w_C[i] * vBeta)) / 
+				  #   sum( (exp(vAlpha + vBeta * k0) * vBeta^2 * mExt[, i]*w_C[i]) )
+			  }
+			  vKappa[i] <- k1
+			}, 
+			{vKappa[i] <- 0})
 		}
 
 		# Now apply the constraints
-		const.kappa	<- ifelse(iStep==1, vKappa[1], mean(vKappa))
+    # const.kappa	<- ifelse(iStep==1, vKappa[1], mean(vKappa))
+		const.kappa	<- ifelse(iStep == 1, vKappa[1], sum(vKappa) / sum(w_C > 0))
 		# const.beta	<- sqrt(sum(vBeta^2))
 		const.beta	<- sum(vBeta)
-		vKappa	<- const.beta*(vKappa-const.kappa)        # Ensures that kappas sum to 0
+		vKappa	<- const.beta*(ifelse(w_C > 0, vKappa-const.kappa, 0))        # Ensures that kappas sum to 0
+		# vKappa	<- const.beta*(vKappa-const.kappa)        # Ensures that kappas sum to 0
 		vBeta	<- vBeta/const.beta		                      # Ensures that betas  sum to 1
 		vAlpha	<- vAlpha+vBeta*const.beta*const.kappa    # Alpha needs to be adjusted to compensate
 
-		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
-		for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
+		for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ]*w_C)) - log(sum(mExt[j, ]*w_C*exp(vBeta[j]*vKappa)))
+		# for(j in 1:iAges) vAlpha[j] <- log(sum(mDxt[j, ])) - log(sum(mExt[j, ]*exp(vBeta[j]*vKappa)))
+		for(i in 1:iYears) mMxt[, i] <-  w_C[i] * exp(vAlpha + vBeta * vKappa[i])
+		# for(i in 1:iYears) mMxt[, i] <- exp(vAlpha + vBeta * vKappa[i])
 
-		dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
+		# dL1 <- sum( mDxt*log(mExt*mMxt) - mExt*mMxt - lgamma(mDxt+1) )
+		dL1 <- sum( t(t(mDxt)*w_C)*log(mExt*mMxt) - t(t(mExt)*w_C)*mMxt - t(t(lgamma(mDxt+1))*w_C), na.rm = TRUE )
 	}		 # end while loop
 	dimnames(mMxt) <- list(Age=vX, Year=vY)
 	list(alpha=as.numeric(vAlpha), beta=vBeta, kappa=vKappa, ages=vX, years=vY, mxt=mMxt) #output 
@@ -79,40 +91,42 @@ fnFitLC <- function(mDxt, mExt, vX, vY, dRelTol=1E-18, iStep=2) {
 
 # Houd deze functie op alleen schatten! Dat is handiger voor plotten van parameters!
 # Output: parameters en gefitte intensities (EU, deltaNL en NL)
-fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
-
+# fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
+fnFitAG2020 <- function(lData_EU, lData_NL, w_EU, w_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol=1E-20) {
 	# Fit common trend for both genders
 	objM1_EU <- list()
 	for( gender in c("M", "F") ) {
-		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
+		# objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
+		objM1_EU[[gender]] <- fnFitLC(mDxt=lData_EU[[gender]]$Dxt, mExt=lData_EU[[gender]]$Ext, w_EU, vX=vX, vY=vY_EU, dRelTol=dRelTol, iStep=parRest)
 	}
-	
 	# Extend kappa with ML kappa's if necessary
 	for( gender in c("M", "F") ) {	
 		if( max(vY_NL) > max(vY_EU) ) { 
 			objM1_EU[[gender]]$kappa_old  <- objM1_EU[[gender]]$kappa
-			dDrift <- mean( diff( objM1_EU[[gender]]$kappa ) )
+			dDrift <- mean(diff(objM1_EU[[gender]]$kappa[!(objM1_EU[[gender]]$kappa==0)]))
+			# dDrift <- mean( diff( objM1_EU[[gender]]$kappa ) )
 			objM1_EU[[gender]]$kappa <- c(objM1_EU[[gender]]$kappa, tail(objM1_EU[[gender]]$kappa,1) + dDrift * 1:(max(vY_NL)-max(vY_EU)) )
+			names(objM1_EU[[gender]]$kappa) <- min(vY_EU):max(vY_NL)
 			objM1_EU[[gender]]$years <- min(vY_EU):max(vY_NL)
-		
 		} else {
 			objM1_EU[[gender]]$kappa_old <- objM1_EU[[gender]]$kappa
 		}
 	}
 	vY_EU_old <- vY_EU
 	vY_EU <- min(vY_EU):max(vY_NL)
-
 	#fit country specific deviation
 	objM1M1_NL <- list()
 	# build to fit length EU and NL
 	sY <- min(vY_NL) - min(vY_EU)+1
 	sE <- length(objM1_EU[[gender]]$years)  # last element EY
 	for( gender in c("M", "F") ) {
-		mxt <- fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=objM1_EU[[gender]]$ages, years=objM1_EU[[gender]]$years)
-		mExt_adj <- lData_NL[[gender]]$Ext * mxt[ , as.character(vY_NL)]
-		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
+	  mxt <- fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=objM1_EU[[gender]]$ages, years=objM1_EU[[gender]]$years)
+		# mExt_adj <- lData_NL[[gender]]$Ext * mxt[ , as.character(vY_NL)]
+	  mExt_adj <- lData_NL[[gender]]$Ext * mxt[, as.character(vY_NL)]
+		# objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
+		objM1M1_NL[[gender]] <- fnFitLC(mDxt=lData_NL[[gender]]$Dxt, mExt=mExt_adj, w_NL, vX=vX, vY=vY_NL, dRelTol=dRelTol, iStep=2)
 	}
-    
+
 	# Define output variables
 	objAG <- list()
 	for( gender in c("M", "F") ) {
@@ -133,7 +147,7 @@ fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol
 		mMxt_EU = fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa, ages=vX, years=vY_EU)
 		mMxt_EU_old = fnMxtFromPars(alpha=objM1_EU[[gender]]$alpha, beta=objM1_EU[[gender]]$beta, kappa=objM1_EU[[gender]]$kappa_old, ages=vX, years=vY_EU_old)
 		mMxt_NL = mMxt_EU[ , as.character(vY_NL)] * fnMxtFromPars(alpha=objM1M1_NL[[gender]]$alpha, beta=objM1M1_NL[[gender]]$beta, kappa=objM1M1_NL[[gender]]$kappa, ages=vX, years=vY_NL)
-		mDxt_EU_hat <- mExt_EU * mMxt_EU_old
+    Dxt_EU_hat <- mExt_EU * mMxt_EU_old
 		mDxt_NL_hat <- mExt_NL * mMxt_NL
 
 		objAG[[gender]] <- list(
@@ -154,7 +168,7 @@ fnFitAG2020 <- function(lData_EU, lData_NL, vX, vY_EU, vY_NL, parRest=2, dRelTol
       mMxt_EU = mMxt_EU, 
 			mMxt_EU_old = mMxt_EU_old, 
 			mMxt_NL = mMxt_NL, 
-			Dxt_EU_hat = mDxt_EU_hat, 
+			Dxt_EU_hat = Dxt_EU_hat, 
 			mDxt_NL_hat = mDxt_NL_hat)
 		}
 
@@ -294,19 +308,60 @@ fnLL_TS_AG2020_trans <- function(objAG, vPars) {
 	vY_EU <- objAG[[1]]$vY_EU
 	vY_NL <- objAG[[1]]$vY_NL
 
+	A2 <- diag(2)
+	A2_var <- mSigma[1:2, 1:2]
+	A4 <- diag(c(1, 1, dA_M, dA_F))
+	A4_var <- mSigma[1:4, 1:4]
+	if(sum(w_EU == 0) > 0) {
+	  for(i in 1:(sum(w_EU == 0))) {
+	    A2_var <- A2_var + (A2 %^% i) %*% mSigma[1:2, 1:2] %*% t(A2 %^% i)
+	    A4_var <- A4_var + (A4 %^% i) %*% mSigma[1:4, 1:4] %*% t(A4 %^% i)
+	  }
+	}
+
+	dA_cum_M <- dA_cum_F <- rep(1, length(diff(vY_NL)))
+	for(i in 1:length(diff(vY_NL))) {
+	  if(diff(vY_NL)[i] > 1)
+      for(j in 1:diff(vY_NL)[i]) {
+  	    dA_cum_M[i] <- dA_cum_M[i] + dA_M^j
+  	    dA_cum_F[i] <- dA_cum_F[i] + dA_F^j
+  	  }
+	}
+
+	# DIT IS EEN DIRTY OPLOSSING DIE STRUCTUREEL MOET WORDEN OPGELOST IN (OOK) objAG
+	# vY_EU <- head(vY_EU, -1)
+	
 	vY_diff <- tail(vY_EU, -1)
 	vY_p1 <- setdiff( tail(vY_EU, -1), tail(vY_NL, -1) )
 	vY_p2 <- tail(vY_NL, -1) 
 
 	mError <- matrix(data=NA, nrow=length(vY_EU)-1, ncol=4, dimnames=list(Year=tail(vY_EU,-1), TS=c("EU-M", "EU-F", "NL-M", "NL-F")))
-	mError[as.character(vY_diff), "EU-M"] <- diff(vK_M) - dTheta_M
-	mError[as.character(vY_diff), "EU-F"] <- diff(vK_F) - dTheta_F
-	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - dA_M * head(vKappa_M, -1) - dC_M
-	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - dA_F * head(vKappa_F, -1) - dC_F
+	mError[as.character(vY_diff), "EU-M"] <- diff(vK_M) - diff(vY_EU) * dTheta_M
+	mError[as.character(vY_diff), "EU-F"] <- diff(vK_F) - diff(vY_EU) * dTheta_F
+	mError[as.character(vY_p2), "NL-M"] <- tail(vKappa_M, -1) - (dA_M^diff(vY_NL)) * head(vKappa_M, -1) - dC_M * dA_cum_M
+	mError[as.character(vY_p2), "NL-F"] <- tail(vKappa_F, -1) - (dA_F^diff(vY_NL)) * head(vKappa_F, -1) - dC_F * dA_cum_F
 
+  temp <- (c(vY_p1, vY_p2) == (if(sum(w_EU==0)==0) -99 else max(as.integer(names(w_EU[w_EU==0]))) + 1))
+  bereken_loglik_rij <- function(i) {
+    if (temp[i]) {
+      sigma_2 <- A2_var
+      sigma_4 <- A4_var
+    } else{
+      sigma_2 <- mSigma[1:2, 1:2]
+      sigma_4 <- mSigma
+    }
+    if (i <= length(vY_p1)) {
+      logLik_rij_p1 <- dmvnorm(x=mError[as.character(vY_p1[i]), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)
+      return(logLik_rij_p1)
+    } else {
+      logLik_rij_p2 <- dmvnorm(x=mError[as.character(vY_p2[i - length(vY_p1)]),], mean=rep(0,4), sigma=sigma_4, log=TRUE)
+      return(logLik_rij_p2)
+    }
+  }
 
-	dLogLik <- sum( dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=mSigma[1:2,1:2], log=TRUE)) + 
-				sum( dmvnorm(x=mError[as.character(vY_p2), ], mean=rep(0,4), sigma=mSigma, log=TRUE))
+  dLogLik <- sum(sapply(1:(length(vY_p1)+length(vY_p2)), bereken_loglik_rij))
+#   dLogLik <- sum(dmvnorm(x=mError[as.character(vY_p1), c("EU-M", "EU-F")], mean=rep(0,2), sigma=sigma_2, log=TRUE)) +
+# 	  sum(dmvnorm(x=mError[as.character(vY_p2),], mean=rep(0,4), sigma=sigma_4, log=TRUE))
 
 	# Remember to return minus the loglikelihood: 
 	# we want to maximize, but optim minimizes
@@ -381,14 +436,14 @@ fnEstimateTS_AG2020 <- function(objAG, dRelTol=1E-18) {
 	#  rho[1,2], rho[1,3], rho[1,4], 
 	#  rho[2,3], rho[2,4], rho[3,4] )
   
-  ### 
+  ###
   set.seed(42)
-  
 	vStartPar <- c(rnorm(n=2,mean=-1,sd=0.25), fnLogitCorr(dRho=0.50), fnLogitCorr(dRho=0.5), rnorm(n=2, mean=0, sd=0.25),
 				log(rnorm(n=4, mean=2, sd=0.25)),
 				fnLogitCorr(0.15), fnLogitCorr(0.25), fnLogitCorr(0.35), 
 				fnLogitCorr(0.45), fnLogitCorr(0.55), fnLogitCorr(0.65))
-	objOptim <- optim(par=vStartPar, fn=fnLL_TS_AG2020_trans, objAG=objAG, method="BFGS", 
+
+		objOptim <- optim(par=vStartPar, fn=fnLL_TS_AG2020_trans, objAG=objAG, method="BFGS", 
 				control=list(reltol=dRelTol, fnscale=100, maxit=1E5)); 
 	if(objOptim$convergence!=0) {
 		stop("Optimization did not converge succesfully!"); flush.console()
@@ -404,6 +459,7 @@ fnWritePars <- function(objAG, sFile) {
   iX <- length(objAG[[1]]$vA)
   iY <- length(objAG[[1]]$vY_NL)
   iYEU <- length(objAG[[1]]$vY_EU)
+  # iYEU <- length(objAG[[1]]$vY_EU)
   
   # Age effects
   mAge_effects <- matrix(data=NA, nrow=iX, ncol=4*2)
@@ -416,29 +472,49 @@ fnWritePars <- function(objAG, sFile) {
     mAge_effects[,4 + (gender-1)*4] <- objAG[[gender]]$vBeta
   }
   # write.xlsx(x=mAge_effects, file=sFile, sheetName="Age effects", col.names=TRUE, row.names=TRUE)
-  
+
   # Period effects
-  mPeriod_effects <- matrix(data=NA, nrow=iYEU, ncol=4)
-  rownames(mPeriod_effects) <- objAG[[1]]$vY_EU
+  mPeriod_effects <- matrix(data=NA, nrow=iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), ncol=4)
+  # mPeriod_effects <- matrix(data=NA, nrow=iYEU
+  rownames(mPeriod_effects) <- seq(from=min(objAG[[1]]$vY_EU), to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))-1, by=1)
   colnames(mPeriod_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
   for(gender in 1:2) {
     mPeriod_effects[,1 + (gender-1)*2] <- objAG[[gender]]$vK
-    mPeriod_effects[(iYEU-iY+1):iYEU,2 + (gender-1)*2] <- objAG[[gender]]$vKappa
+    mPeriod_effects[(iYEU-iY+1+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))):(iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))),2 + (gender-1)*2] <- objAG[[gender]]$vKappa
   }
   # write.xlsx(x=mPeriod_effects, file=sFile, sheetName="Period effects", col.names=TRUE, row.names=TRUE, append=TRUE)
-  
-  
+
   # Drift, constant mean reversion parameters
   mTS_pars <- matrix(data=NA, nrow=6, ncol=1)
   rownames(mTS_pars) <- c("theta_M", "theta_F","c_M", "c_F", "a_M", "a_F")
-  objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
-  
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+
+  # objTS <- fnEstimateTS_AG2020(objAG, dRelTol=1E-18)
+
   ### Check if parameters equal the parameters used in calculations.
   # objTS_to_check <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
   # print(identical(objTS, objTS_to_check))
   mTS_pars[1:4,] <- objTS$Drift
   mTS_pars[5:6,] <- objTS$MR
   # write.xlsx(x=mTS_pars, file=sFile, sheetName="TS pars", col.names=FALSE, row.names=TRUE, append=TRUE)
+  
+
+  # Projected Period effects
+  mProj_Period_effects <- matrix(data=NA, nrow=iT_fut, ncol=4)
+  # mPeriod_effects <- matrix(data=NA, nrow=iYEU
+  rownames(mProj_Period_effects) <- seq(from=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 
+                                        to=min(objAG[[1]]$vY_EU)+iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU))+iT_fut-1, by=1)
+  colnames(mProj_Period_effects) <- c("K_M", "kappa_M", "K_F", "kappa_F")
+  for(gender in 1:2) {
+    mProj_Period_effects[1, 1 + (gender-1)*2] <- mTS_pars[1+(gender-1)] + mPeriod_effects[iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 1 + (gender-1)*2]
+    mProj_Period_effects[1, 2 + (gender-1)*2] <- mTS_pars[3+(gender-1)] + mTS_pars[5+(gender-1)] * mPeriod_effects[iYEU+max(0, max(objAG[[1]]$vY_NL)-max(objAG[[1]]$vY_EU)), 2 + (gender-1)*2]
+    for(i in 2:nrow(mProj_Period_effects)) {
+      mProj_Period_effects[i, 1 + (gender-1)*2] <- mTS_pars[1+(gender-1)] + mProj_Period_effects[i-1, 1 + (gender-1)*2]
+      mProj_Period_effects[i, 2 + (gender-1)*2] <- mTS_pars[3+(gender-1)] + mTS_pars[5+(gender-1)] * mProj_Period_effects[i-1, 2 + (gender-1)*2]
+    }
+  }
+  mPeriod_effects <- rbind(mPeriod_effects, mProj_Period_effects)
+  # write.xlsx(x=mPeriod_effects, file=sFile, sheetName="Period effects", col.names=TRUE, row.names=TRUE, append=TRUE)
   
   # Covariance matrix
   mSigma <- objTS$Sigma
@@ -775,7 +851,7 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
     # Extrapoleer alpha lineair naar 0
     vAlpha_extrap <- vAlpha
     for (i in x_kannisto) { vAlpha_extrap[i+1] <- vAlpha_extrap[i] - (tail(vAlpha,1) / (kannisto_nages)) }
-    
+
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), (iX_cal+1:iX_kan)] <- ApplyKannisto_mtx(mtx=mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
@@ -812,10 +888,12 @@ fnProjectAG_BE_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
 }
 
 fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20) {
-  
+
   # Estimate the TS model and extract regression results
-  objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
-  saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
+  # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  # saveRDS(objTS, here(run_folder, paste0(runname, "_TS.rds")))
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
+
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -881,7 +959,7 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     B_lm <- lm(log(tail(vB,kannisto_nobs)) ~ tail(vX,kannisto_nobs))
     for (i in x_kannisto) { vB_extrap[i+1] <- B_lm$coefficients[1] + B_lm$coefficients[2]*i }
     vB_extrap <- exp(vB_extrap)
-	vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
+	  vB_extrap[1:91] <- vB #niet per se nodig. heb gecheckt of er niets veranderd op 15 significante cijfers bij log en exp transformatie
     
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_EU_tx[ , iX_cal + 1:iX_kan] <- ApplyKannisto_mtx(mtx=mMu_EU_tx[ , 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
@@ -896,26 +974,26 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
     # Extrapoleer alpha lineair naar 0
     vAlpha_extrap <- vAlpha
     for (i in x_kannisto) { vAlpha_extrap[i+1] <- vAlpha_extrap[i] - (tail(vAlpha,1) / (kannisto_nages)) }
-    
+
     # Pas eerst "gewoon" Kannisto toe over de geschatte Europese sterfte intensiteiten
     mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), (iX_cal+1:iX_kan)] <- ApplyKannisto_mtx(mtx=mMu_NL_tx[(iT_his_diff:nrow(mMu_NL_tx)), 1:iX_cal], ages=vX, kannisto_nages=iX_kan, kannisto_nobs=11)
     # Bepaal het verschil tussen de NL en EU sterfte intensiteiten
     mMu_NL_tx_diff <- mMu_NL_tx / mMu_EU_tx[(dim(mMu_EU_tx)[1]-dim(mMu_NL_tx)[1]+1):(dim(mMu_EU_tx)[1]),]
     # Bepaal beta door voor de laatste steekproefperiode de geextrapoleerde alpha af te halen van log(Mu) en te delen door kappa
 
-	vBeta_extrap <- vBeta
+	  vBeta_extrap <- vBeta
     
     vBeta_extrap[x_kannisto + 1] <-
       (log(mMu_NL_tx_diff[length(vY_EU), x_kannisto + 1]) -
          vAlpha_extrap[x_kannisto + 1]) /
       mTS_BE[2 + g, length(vY_EU)]
     
-	#vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
+	  #vBeta_extrap <- (log(mMu_NL_tx_diff[length(vY_EU),]) - vAlpha_extrap)/mTS_BE[2+g,length(vY_EU)]
 
-	vA_extrap <- signif(vA_extrap,15)
-    vB_extrap <- signif(vB_extrap,15)
-    vAlpha_extrap <- signif(vAlpha_extrap,15)
-    vBeta_extrap <- signif(vBeta_extrap,15)
+	  vA_extrap <- signif(vA_extrap,15)
+      vB_extrap <- signif(vB_extrap,15)
+      vAlpha_extrap <- signif(vAlpha_extrap,15)
+      vBeta_extrap <- signif(vBeta_extrap,15)
 	
     ####################################################################
     # Bepaal de sterfte intensiteiten voor leeftijden 91 t/m 120 o.b.v. de doorgetrokken A, B, alpha en beta (_extrap) voor alle jaren 
@@ -956,9 +1034,10 @@ fnProjectAG_BE_all_alternatiefB_HellingEnConstante <- function(objAG, iT_fut=20)
 
 # Project Kappa 
 Project_kappa <- function(objAG, iT_fut=20) {
-  
+ 
   # Estimate the TS model and extract regression results
-  objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)  
+  # objTS <- fnEstimateTS_AG2020(objAG=objAG, dRelTol=1E-18)
+  objTS <- readRDS(here(run_folder, paste0(runname, "_TS.rds")))
   mCov  <- objTS$Sigma
   mRho  <- objTS$Rho
   vDrift <- objTS$Drift
@@ -975,7 +1054,7 @@ Project_kappa <- function(objAG, iT_fut=20) {
   mTS_BE["NL-M", as.character(vY_NL)] <- tail(objAG[["M"]]$vKappa, iT_his)
   mTS_BE["NL-F", as.character(vY_NL)] <- tail(objAG[["F"]]$vKappa, iT_his)
   
-  # Now create forecasts, but loop over the years instead of over simualations
+  # Now create forecasts, but loop over the years instead of over simulations
   for(i in 1:iT_fut) {
     mTS_BE[ , iT_his + i] <- vDrift + vMR * mTS_BE[ , iT_his + i - 1] 
   }
@@ -1006,6 +1085,7 @@ fnProjectAG_sim_kannisto <- function(objAG, iT_fut=120, iSims=10) {
   aTS_sim["NL-M", as.character(vY_NL), ] <- matrix(data=tail(objAG[["M"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   aTS_sim["NL-F", as.character(vY_NL), ] <- matrix(data=tail(objAG[["F"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   # Now create forecasts, but loop over the years instead of over simulations
+  if (fixed_Sims) set.seed(654987)
   for(i in 1:iT_fut) {
     mEps <- t(mvrnorm(n=iSims, mu=rep(0, 4), Sigma=mCov))
     for(j in 1:4) {
@@ -1071,6 +1151,7 @@ fnProjectAG_sim_alternatiefB <- function(objAG, iT_fut=120, iSims=10) {
   aTS_sim["NL-M", as.character(vY_NL), ] <- matrix(data=tail(objAG[["M"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   aTS_sim["NL-F", as.character(vY_NL), ] <- matrix(data=tail(objAG[["F"]]$vKappa, iT_his), nrow=iT_his, ncol=iSims)
   # Now create forecasts, but loop over the years instead of over simulations
+  if (fixed_Sims) set.seed(654987)
   for(i in 1:iT_fut) {
     mEps <- t(mvrnorm(n=iSims, mu=rep(0, 4), Sigma=mCov))
     for(j in 1:4) {
@@ -1117,7 +1198,10 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
 {
   if(is.null(mtx))
     return(NULL)
-  
+
+  # om de vele warnings dat log(...) resulteert in NaN te voorkomen
+  mtx[(mtx>= 1) | (mtx <= 0)] <- NA
+
   #extract dimensions of mtxi
   n.ahead <- dim(mtx)[1]
   n.age   <- dim(mtx)[2]
@@ -1127,16 +1211,17 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
   kannisto_obsages         <- tail(ages, kannisto_nobs)
   kannisto_extrapolateages <- tail(ages, 1) + 1:kannisto_nages
   kannisto_mtx            <- matrix(data=0, nrow=n.ahead, ncol=kannisto_nages)
-  
+
   for(t in 1:(n.ahead)) {
       #obtain mx used for extrapolation
       kannisto_mx_obs <- tail(mtx[t,], kannisto_nobs)
-      
+    
       #apply transformation
       kannisto_mx_obs <- log(kannisto_mx_obs/(1-kannisto_mx_obs))
       
       #apply the regression and obtain phi1 and phi2
-      kannisto_lm <- lm(kannisto_mx_obs ~ kannisto_obsages)
+      kannisto_obsages[is.na(kannisto_mx_obs)] <-  NA
+      kannisto_lm <- lm(kannisto_mx_obs ~ kannisto_obsages, na.action = na.omit)
       kannisto_phi1 <- exp(kannisto_lm$coefficient[1])
       kannisto_phi2 <- kannisto_lm$coefficient[2]
       
@@ -1144,7 +1229,6 @@ ApplyKannisto_mtx = function(mtx, ages, kannisto_nages=30, kannisto_nobs=15)
       kannisto_mtx[t, 1:kannisto_nages] <- kannisto_phi1*exp(kannisto_phi2*kannisto_extrapolateages)/(1+kannisto_phi1*exp(kannisto_phi2*kannisto_extrapolateages))	
  
   }
-  
   kannisto_mtx
 }
 # Closing function for mortality forecast simulations
@@ -1169,7 +1253,7 @@ ApplyKannisto_mtxi = function(mtxi, ages, kannisto_nages=30, kannisto_nobs=15)
     for(i in 1:n.sim) {
       #obtain mx used for extrapolation
       kannisto_mx_obs <- tail(mtxi[t,,i], kannisto_nobs)
-      
+
       #apply transformation
       kannisto_mx_obs <- log(kannisto_mx_obs/(1-kannisto_mx_obs))
       
